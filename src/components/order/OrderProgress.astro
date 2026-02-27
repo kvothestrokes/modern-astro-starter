@@ -1,0 +1,38 @@
+---
+/** Barra de progreso en azul (proceso, avance). Dorado se reserva solo para botones de avanzar y confirmar. */
+interface Props {
+  current: 1 | 2 | 3;
+}
+const { current } = Astro.props;
+const steps = ['Pedido', 'Productos + Diseños', 'Revisión'];
+---
+
+<ol class="mb-5 grid grid-cols-3 gap-2">
+  {
+    steps.map((step, index) => {
+      const stepNum = index + 1;
+      const isCompleted = stepNum < current;
+      const isCurrent = stepNum === current;
+      let boxClass = 'rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors ';
+      if (isCurrent) {
+        boxClass += 'border-sky-500/60 bg-sky-100 text-sky-800 ring-1 ring-sky-400/40';
+      } else if (isCompleted) {
+        boxClass += 'border-sky-400/50 bg-sky-100/80 text-sky-800';
+      } else {
+        boxClass += 'border-zinc-300 bg-white text-zinc-600';
+      }
+      return (
+        <li class={boxClass}>
+          <span class="inline-flex items-center justify-center gap-1.5">
+            {isCompleted ? (
+              <svg class="size-3.5 shrink-0 text-sky-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : null}
+            {stepNum}. {step}
+          </span>
+        </li>
+      );
+    })
+  }
+</ol>

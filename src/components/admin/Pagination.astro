@@ -1,0 +1,34 @@
+---
+interface Props {
+  page: number;
+  hasNext: boolean;
+  basePath: string;
+  status?: string;
+  search?: string;
+}
+
+const { page, hasNext, basePath, status = '', search = '' } = Astro.props;
+
+function hrefFor(nextPage: number) {
+  const url = new URL(basePath, 'http://local');
+  url.searchParams.set('page', String(nextPage));
+  if (status) url.searchParams.set('status', status);
+  if (search) url.searchParams.set('q', search);
+  return `${url.pathname}${url.search}`;
+}
+---
+<div class="mt-4 flex items-center justify-between">
+  <a
+    href={page > 1 ? hrefFor(page - 1) : '#'}
+    class={`rounded border px-3 py-1 text-sm ${page > 1 ? 'bg-white' : 'pointer-events-none opacity-40'}`}
+  >
+    Anterior
+  </a>
+  <p class="text-sm text-zinc-600">Pagina {page}</p>
+  <a
+    href={hasNext ? hrefFor(page + 1) : '#'}
+    class={`rounded border px-3 py-1 text-sm ${hasNext ? 'bg-white' : 'pointer-events-none opacity-40'}`}
+  >
+    Siguiente
+  </a>
+</div>

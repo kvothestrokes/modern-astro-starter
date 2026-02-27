@@ -1,0 +1,82 @@
+---
+import PublicLayout from '../../layouts/PublicLayout.astro';
+import StepHeader from '../../components/order/StepHeader.astro';
+import OrderProgress from '../../components/order/OrderProgress.astro';
+import Button from '../../components/ui/Button.astro';
+---
+
+<PublicLayout title="Nuevo pedido | Paso 1">
+  <OrderProgress current={1} />
+  <StepHeader title="Datos del pedido" subtitle="Completa estos datos con calma. Solo te pediremos lo necesario." />
+
+  <form id="step1Form" class="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+    <label class="grid gap-1 text-sm">
+      <span class="font-medium">Nombre del cliente o empresa</span>
+      <input required name="customerName" class="rounded-lg border border-zinc-300 px-3 py-2" />
+    </label>
+    <div class="grid gap-3 md:grid-cols-2">
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Correo (opcional)</span>
+        <input name="customerEmail" type="email" class="rounded-lg border border-zinc-300 px-3 py-2" />
+      </label>
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Teléfono (opcional)</span>
+        <input name="customerPhone" class="rounded-lg border border-zinc-300 px-3 py-2" />
+      </label>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2">
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Tipo de cliente</span>
+        <select name="customerType" class="rounded-lg border border-zinc-300 px-3 py-2">
+          <option value="mayorista">Mayorista</option>
+          <option value="empresa">Empresa</option>
+          <option value="minorista">Minorista</option>
+          <option value="otro">Otro</option>
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Factura</span>
+        <select name="requiresInvoice" class="rounded-lg border border-zinc-300 px-3 py-2">
+          <option value="false">No necesito factura</option>
+          <option value="true">Sí necesito factura</option>
+        </select>
+      </label>
+    </div>
+    <label class="grid gap-1 text-sm">
+      <span class="font-medium">Observaciones generales (opcional)</span>
+      <textarea name="notes" rows={3} class="rounded-lg border border-zinc-300 px-3 py-2"></textarea>
+    </label>
+    <div class="flex justify-end">
+      <Button type="submit">Siguiente</Button>
+    </div>
+  </form>
+</PublicLayout>
+
+<script type="module">
+  const KEY = 'order-draft-v1';
+  const form = document.querySelector('#step1Form');
+  const initial = JSON.parse(localStorage.getItem(KEY) || '{}');
+  for (const [name, value] of Object.entries(initial)) {
+    const field = form.elements.namedItem(name);
+    if (field && 'value' in field && typeof value !== 'object') field.value = String(value);
+  }
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const current = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const next = {
+      ...current,
+      customerName: form.customerName.value,
+      customerEmail: form.customerEmail.value,
+      customerPhone: form.customerPhone.value,
+      customerType: form.customerType.value,
+      requiresInvoice: form.requiresInvoice.value === 'true',
+      notes: form.notes.value,
+      products: current.products || [],
+      designs: current.designs || [],
+      assignments: current.assignments || []
+    };
+    localStorage.setItem(KEY, JSON.stringify(next));
+    location.href = '/pedido/productos';
+  });
+</script>

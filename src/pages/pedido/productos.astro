@@ -1,0 +1,432 @@
+---
+import PublicLayout from '../../layouts/PublicLayout.astro';
+import StepHeader from '../../components/order/StepHeader.astro';
+import OrderProgress from '../../components/order/OrderProgress.astro';
+import Button from '../../components/ui/Button.astro';
+import { PRODUCT_TYPES, SIZES, COLORS } from '../../lib/productOptions';
+---
+
+<PublicLayout title="Nuevo pedido | Paso 2">
+  <OrderProgress current={2} />
+  <StepHeader
+    title="Productos y diseños"
+    subtitle="Añade productos, sube tus diseños y asígnalos a cada prenda. Puedes volver atrás cuando quieras."
+  />
+
+  <form id="addProductForm" class="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+    <div class="grid gap-3 md:grid-cols-2">
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Producto</span>
+        <select required name="productType" id="productType" class="rounded-lg border border-zinc-300 px-3 py-2">
+          {PRODUCT_TYPES.map((t) => (
+            <option value={t}>{t}</option>
+          ))}
+        </select>
+      </label>
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Cantidad</span>
+        <input required min="1" type="number" name="quantity" id="quantity" value="1" class="rounded-lg border border-zinc-300 px-3 py-2" />
+      </label>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2">
+      <label class="grid gap-1 text-sm">
+        <span class="font-medium">Talla</span>
+        <select name="size" id="size" class="rounded-lg border border-zinc-300 px-3 py-2">
+          {SIZES.map((s) => (
+            <option value={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+      <div class="grid gap-1 text-sm">
+        <span class="font-medium">Color (N/A si no es playera)</span>
+        <div class="mt-1 flex flex-wrap gap-2" id="colorSwatches" role="group" aria-label="Color">
+          {COLORS.map((c) => (
+            <button
+              type="button"
+              class={`color-swatch h-8 w-8 rounded-full border-2 border-zinc-300 transition focus:outline-none focus:ring-2 focus:ring-zinc-900 data-[selected=true]:border-zinc-900 data-[selected=true]:ring-2 data-[selected=true]:ring-zinc-900 ${c.hex ? '' : 'bg-zinc-200'}`}
+              data-value={c.value}
+              data-label={c.label}
+              title={c.label}
+              style={c.hex ? `background-color: ${c.hex}` : ''}
+            >
+              {c.value === 'NA' ? <span class="text-[10px] font-medium text-zinc-600">N/A</span> : null}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="color" id="colorInput" value="NA" />
+      </div>
+    </div>
+    <label class="grid gap-1 text-sm">
+      <span class="font-medium">Notas (opcional)</span>
+      <input name="notes" id="notes" class="rounded-lg border border-zinc-300 px-3 py-2" />
+    </label>
+    <div class="flex justify-end">
+      <Button type="submit">Agregar producto</Button>
+    </div>
+  </form>
+
+  <section class="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-semibold">Productos del pedido</h2>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full min-w-[600px] text-sm text-zinc-700">
+        <thead>
+          <tr class="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500">
+            <th class="pb-2 pr-2">Producto</th>
+            <th class="pb-2 pr-2">Talla</th>
+            <th class="pb-2 pr-2">Color</th>
+            <th class="pb-2 pr-2">Cantidad</th>
+            <th class="pb-2 pr-2">Diseños</th>
+            <th class="pb-2 pl-2 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="productsTableBody"></tbody>
+      </table>
+    </div>
+    <p id="productsEmpty" class="mt-3 text-sm text-zinc-500 hidden">Aún no hay productos. Agrega el primero cuando estés listo.</p>
+  </section>
+
+  <section class="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-semibold">Agregar y previsualizar diseños</h2>
+    <p class="mt-1 text-xs text-zinc-600">Tus archivos se subirán de forma segura al confirmar el pedido. Elige imágenes, revísalas y asígnalas a cada prenda en la tabla.</p>
+    <label
+      for="designFiles"
+      class="mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-6 text-center transition-colors hover:bg-gold-100/30"
+    >
+      <span class="text-sm font-medium">Elegir imágenes</span>
+      <input id="designFiles" class="hidden" type="file" multiple accept="image/*" />
+    </label>
+    <div id="designPreviewGrid" class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"></div>
+    <div class="mt-3 flex items-center gap-2">
+      <Button type="button" id="uploadDesignsBtn" disabled>Agregar al pedido</Button>
+      <span id="uploadFeedback" class="text-sm text-zinc-600"></span>
+    </div>
+  </section>
+
+  <section class="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-semibold">Diseños agregados al pedido</h2>
+    <div id="designsGrid" class="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3"></div>
+    <div class="mt-4 flex justify-between">
+      <Button href="/pedido" variant="secondary">Volver</Button>
+      <Button href="/pedido/revision">Siguiente</Button>
+    </div>
+  </section>
+</PublicLayout>
+
+<script type="module">
+  // Paso 2: todo local (sin Supabase). Los diseños se guardan en el borrador como data URL.
+  // La subida a Supabase ocurre solo al enviar desde el paso de revisión (resumen).
+  const KEY = 'order-draft-v1';
+  const form = document.getElementById('addProductForm');
+  const productsTableBody = document.getElementById('productsTableBody');
+  const productsEmpty = document.getElementById('productsEmpty');
+  const colorSwatches = document.getElementById('colorSwatches');
+  const colorInput = document.getElementById('colorInput');
+  const designFiles = document.getElementById('designFiles');
+  const designPreviewGrid = document.getElementById('designPreviewGrid');
+  const uploadDesignsBtn = document.getElementById('uploadDesignsBtn');
+  const uploadFeedback = document.getElementById('uploadFeedback');
+  const designsGrid = document.getElementById('designsGrid');
+
+  const POSITIONS = [
+    { value: 'front', label: 'Frente' },
+    { value: 'back', label: 'Espalda' },
+    { value: 'sleeve', label: 'Manga' },
+    { value: 'other', label: 'Otro' }
+  ];
+
+  function readDraft() {
+    try {
+      return JSON.parse(localStorage.getItem(KEY) || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  function writeDraft(next) {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  }
+
+  function getFormValue(formEl, name) {
+    const el = formEl?.elements?.namedItem?.(name);
+    if (!el) return '';
+    return 'value' in el ? String(el.value) : '';
+  }
+
+  // Color swatches: select one, update hidden input
+  colorSwatches?.querySelectorAll('.color-swatch').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      colorSwatches.querySelectorAll('.color-swatch').forEach((b) => b.removeAttribute('data-selected'));
+      btn.setAttribute('data-selected', 'true');
+      const val = btn.getAttribute('data-value') || 'NA';
+      if (colorInput) colorInput.value = val;
+    });
+  });
+  const firstNa = colorSwatches?.querySelector('[data-value="NA"]');
+  if (firstNa) firstNa.setAttribute('data-selected', 'true');
+
+  function renderProductsTable() {
+    const draft = readDraft();
+    const products = draft.products || [];
+    const designs = draft.designs || [];
+    const assignments = draft.assignments || [];
+
+    if (products.length === 0) {
+      productsTableBody.innerHTML = '';
+      productsEmpty?.classList.remove('hidden');
+      return;
+    }
+    productsEmpty?.classList.add('hidden');
+
+    productsTableBody.innerHTML = products
+      .map(
+        (item, idx) => {
+          const assigned = assignments.filter((a) => a.productLocalId === item.localId);
+          const designLabels = assigned
+            .map((a) => {
+              const d = designs.find((x) => x.localId === a.designLocalId);
+              return d ? { url: d.originalImageUrl, position: a.position, productLocalId: item.localId, designLocalId: a.designLocalId } : null;
+            })
+            .filter(Boolean);
+          const thumbnails = designLabels
+            .map(
+              (t) =>
+                `<span class="relative inline-block"><img class="h-10 w-10 rounded object-cover border border-zinc-200" src="${escapeAttr(t.url)}" alt="" title="${escapeAttr(t.position)}" /><button type="button" class="remove-assign-btn absolute -right-1 -top-1 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] leading-none" data-product-id="${escapeAttr(t.productLocalId)}" data-design-id="${escapeAttr(t.designLocalId)}" title="Quitar asignacion">×</button></span>`
+            )
+            .join('');
+          return `
+          <tr class="border-b border-zinc-100 align-middle">
+            <td class="py-2 pr-2 font-medium">${escapeHtml(item.productType)}</td>
+            <td class="py-2 pr-2">${escapeHtml(item.size || '-')}</td>
+            <td class="py-2 pr-2">${escapeHtml(item.color || '-')}</td>
+            <td class="py-2 pr-2">${item.quantity}</td>
+            <td class="py-2 pr-2">
+              <div class="flex flex-wrap items-center gap-1">${thumbnails || '<span class="text-zinc-400 text-xs">0 diseños</span>'}</div>
+              <button type="button" class="assign-design-btn mt-1 rounded border border-zinc-300 px-2 py-1 text-xs" data-product-id="${escapeAttr(item.localId)}">Asignar diseño</button>
+            </td>
+            <td class="py-2 pl-2 text-right">
+              <button type="button" class="remove-product-btn rounded border border-zinc-300 px-2 py-1 text-xs" data-index="${idx}">Quitar</button>
+            </td>
+          </tr>`;
+        }
+      )
+      .join('');
+
+    productsTableBody.querySelectorAll('.remove-product-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const index = Number(btn.getAttribute('data-index'));
+        const draft = readDraft();
+        const removed = (draft.products || [])[index];
+        draft.products = (draft.products || []).filter((_, i) => i !== index);
+        if (removed) draft.assignments = (draft.assignments || []).filter((a) => a.productLocalId !== removed.localId);
+        writeDraft(draft);
+        renderProductsTable();
+        renderDesignsGrid();
+      });
+    });
+
+    productsTableBody.querySelectorAll('.assign-design-btn').forEach((btn) => {
+      btn.addEventListener('click', () => openAssignModal(btn.getAttribute('data-product-id')));
+    });
+    productsTableBody.querySelectorAll('.remove-assign-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const productId = btn.getAttribute('data-product-id');
+        const designId = btn.getAttribute('data-design-id');
+        const draft = readDraft();
+        draft.assignments = (draft.assignments || []).filter(
+          (a) => !(a.productLocalId === productId && a.designLocalId === designId)
+        );
+        writeDraft(draft);
+        renderProductsTable();
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function escapeAttr(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function openAssignModal(productLocalId) {
+    const draft = readDraft();
+    const designs = draft.designs || [];
+    if (designs.length === 0) {
+      uploadFeedback.textContent = 'Primero sube al menos un diseño.';
+      return;
+    }
+    const container = document.createElement('div');
+    container.id = 'assignModal';
+    container.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4';
+    const positionSelect = POSITIONS.map((p) => `<option value="${p.value}">${p.label}</option>`).join('');
+    container.innerHTML = `
+      <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-4 shadow-lg">
+        <h3 class="text-sm font-semibold">Asignar diseño a esta playera</h3>
+        <label class="mt-3 block text-xs font-medium text-zinc-600">Diseño</label>
+        <select id="assignDesignSelect" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm">
+          ${designs.map((d, i) => `<option value="${d.localId}">Diseño ${i + 1}</option>`).join('')}
+        </select>
+        <label class="mt-3 block text-xs font-medium text-zinc-600">Posicion</label>
+        <select id="assignPosition" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm">${positionSelect}</select>
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" id="assignModalCancel" class="rounded border border-zinc-300 px-3 py-1 text-sm">Cancelar</button>
+          <button type="button" id="assignModalConfirm" class="rounded bg-zinc-900 px-3 py-1 text-sm text-white">Asignar</button>
+        </div>
+      </div>
+    `;
+    container.querySelector('#assignModalCancel').addEventListener('click', () => container.remove());
+    container.querySelector('#assignModalConfirm').addEventListener('click', () => {
+      const designSelect = container.querySelector('#assignDesignSelect');
+      const positionSelectEl = container.querySelector('#assignPosition');
+      const designLocalId = designSelect?.value;
+      const position = positionSelectEl?.value || 'front';
+      if (!designLocalId) {
+        container.remove();
+        return;
+      }
+      const draft = readDraft();
+      draft.assignments = draft.assignments || [];
+      draft.assignments.push({ designLocalId, productLocalId, position, notes: '' });
+      writeDraft(draft);
+      container.remove();
+      renderProductsTable();
+    });
+    document.body.appendChild(container);
+  }
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const productType = getFormValue(form, 'productType');
+    const size = getFormValue(form, 'size');
+    const color = getFormValue(form, 'color') || (colorInput && 'value' in colorInput ? colorInput.value : 'NA');
+    const quantity = Number(getFormValue(form, 'quantity')) || 1;
+    const notes = getFormValue(form, 'notes');
+
+    const draft = readDraft();
+    draft.products = draft.products || [];
+    draft.products.push({
+      localId: crypto.randomUUID(),
+      productType,
+      size,
+      color,
+      quantity,
+      notes
+    });
+    writeDraft(draft);
+
+    form.reset();
+    const qtyEl = form.querySelector('#quantity');
+    if (qtyEl && 'value' in qtyEl) qtyEl.value = '1';
+    colorSwatches?.querySelectorAll('.color-swatch').forEach((b) => b.removeAttribute('data-selected'));
+    const naBtn = colorSwatches?.querySelector('[data-value="NA"]');
+    if (naBtn) naBtn.setAttribute('data-selected', 'true');
+    if (colorInput) colorInput.value = 'NA';
+
+    renderProductsTable();
+  });
+
+  let pendingFiles = [];
+  designFiles?.addEventListener('change', () => {
+    pendingFiles = [...(designFiles.files || [])];
+    designPreviewGrid.innerHTML = '';
+    if (pendingFiles.length === 0) {
+      uploadDesignsBtn.disabled = true;
+      return;
+    }
+    pendingFiles.forEach((file) => {
+      const url = URL.createObjectURL(file);
+      const div = document.createElement('div');
+      div.className = 'relative rounded-lg border border-zinc-200 overflow-hidden';
+      div.innerHTML = `<img class="h-24 w-full object-cover" src="${url}" alt="Preview" /><span class="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[10px] text-white truncate">${escapeAttr(file.name)}</span>`;
+      designPreviewGrid.appendChild(div);
+    });
+    uploadDesignsBtn.disabled = false;
+    uploadFeedback.textContent = `${pendingFiles.length} imagen(es) lista(s). Pulsa "Agregar al pedido".`;
+  });
+
+  uploadDesignsBtn?.addEventListener('click', () => {
+    if (pendingFiles.length === 0) return;
+    uploadFeedback.textContent = 'Agregando...';
+    uploadDesignsBtn.disabled = true;
+    const draft = readDraft();
+    draft.designs = draft.designs || [];
+    const readers = pendingFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve({ file, dataUrl: r.result });
+          r.onerror = () => reject(new Error('No se pudo leer la imagen'));
+          r.readAsDataURL(file);
+        })
+    );
+    Promise.all(readers)
+      .then((results) => {
+        results.forEach(({ dataUrl }) => {
+          draft.designs.push({
+            localId: crypto.randomUUID(),
+            originalImageUrl: dataUrl,
+            storagePath: null,
+            status: 'falta_diseno',
+            notes: ''
+          });
+        });
+        writeDraft(draft);
+        pendingFiles = [];
+        designPreviewGrid.innerHTML = '';
+        designFiles.value = '';
+        uploadFeedback.textContent = 'Diseños agregados al pedido. Asígnalos en la tabla de productos.';
+        renderDesignsGrid();
+        renderProductsTable();
+      })
+      .catch((err) => {
+        uploadFeedback.textContent = 'Error: ' + (err?.message || 'intenta de nuevo');
+      })
+      .finally(() => {
+        uploadDesignsBtn.disabled = false;
+      });
+  });
+
+  function renderDesignsGrid() {
+    const draft = readDraft();
+    const designs = draft.designs || [];
+    designsGrid.innerHTML = '';
+    if (designs.length === 0) {
+      designsGrid.innerHTML = '<p class="text-sm text-zinc-500">Aún no hay diseños agregados.</p>';
+      return;
+    }
+    designs.forEach((item, index) => {
+      const card = document.createElement('article');
+      card.className = 'relative overflow-hidden rounded-lg border border-zinc-200';
+      const title = 'Diseño ' + (index + 1);
+      card.innerHTML = `
+        <button type="button" class="remove-design-btn absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white text-sm font-bold shadow hover:bg-red-600" data-design-id="${escapeAttr(item.localId)}" title="Quitar diseño" aria-label="Quitar diseño">×</button>
+        <p class="p-2 text-sm font-semibold text-zinc-900">${escapeHtml(title)}</p>
+        <img loading="lazy" class="h-36 w-full object-cover" src="${escapeAttr(item.originalImageUrl)}" alt="${escapeHtml(title)}" />
+        <div class="p-2 text-xs text-zinc-700">Subido</div>
+      `;
+      designsGrid.appendChild(card);
+    });
+  }
+
+  designsGrid?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.remove-design-btn');
+    if (!btn) return;
+    const designLocalId = btn.getAttribute('data-design-id');
+    if (!designLocalId) return;
+    const draft = readDraft();
+    draft.designs = (draft.designs || []).filter((d) => d.localId !== designLocalId);
+    draft.assignments = (draft.assignments || []).filter((a) => a.designLocalId !== designLocalId);
+    writeDraft(draft);
+    renderProductsTable();
+    renderDesignsGrid();
+  });
+
+  renderProductsTable();
+  renderDesignsGrid();
+</script>

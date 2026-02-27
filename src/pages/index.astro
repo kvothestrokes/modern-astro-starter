@@ -1,9 +1,27 @@
 ---
-import Layout from "../layouts/Layout.astro";
-
-
+import PublicLayout from '../layouts/PublicLayout.astro';
+import Button from '../components/ui/Button.astro';
 ---
 
-<Layout>
-	<h1>Astro</h1>
-</Layout>
+<PublicLayout title="Ouroboros - Pedido Fácil | Inicio">
+  <section class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-5 md:grid-cols-[1.3fr_1fr] md:items-center">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">Pedidos de playeras y personalizados</h1>
+      <p class="mt-2 text-sm text-zinc-600">
+        Flujo guiado para tus clientes y panel interno para seguir cada pedido con claridad.
+      </p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button href="/pedido">Crear pedido</Button>
+        <Button href="/admin/pedidos" variant="secondary">Ir al dashboard</Button>
+      </div>
+    </div>
+    <div class="rounded-xl bg-zinc-100 p-4 text-sm text-zinc-700">
+      <p class="font-medium text-zinc-900">Diseñado para el día a día:</p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>Pasos simples y visuales</li>
+        <li>Subida segura de imágenes</li>
+        <li>Estados claros para producción</li>
+      </ul>
+    </div>
+  </section>
+</PublicLayout>

@@ -1,0 +1,11 @@
+---
+interface Props {
+  label: string;
+  tone?: string;
+}
+const { label, tone = 'bg-zinc-200 text-zinc-700' } = Astro.props;
+---
+<span class={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${tone}`}>
+  <slot name="icon" />
+  {label}
+</span>

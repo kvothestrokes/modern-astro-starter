@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+/*
+ * Paleta y tokens — Teoría del color aplicada:
+ * - Fondo: neutros (blanco suave / zinc) para no fatigar.
+ * - Texto: alto contraste (zinc-900) para legibilidad.
+ * - Dorado: SOLO acento premium — confirmación, avance, calidad, profesionalismo.
+ *   No se usa como fondo principal ni se satura la interfaz.
+ */
+@theme {
+  /* Acento premium: bordes, estados "listo", confirmaciones, botón primary */
+  --color-gold-100: #fef9e7;
+  --color-gold-200: #fcefc7;
+  --color-gold-400: #e4b84a;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a68520;
+  --color-gold-800: #6b5716;
+}

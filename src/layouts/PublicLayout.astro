@@ -1,0 +1,42 @@
+---
+import '../styles/global.css';
+
+/** Dorado solo en botones de avanzar/confirmar; header neutro. */
+interface Props {
+  title?: string;
+}
+
+const { title = 'Pedidos de personalizados' } = Astro.props;
+---
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-zinc-50 text-zinc-900">
+    <header class="border-b border-zinc-200 bg-white">
+      <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <a href="/" class="flex items-center gap-2 text-sm font-semibold tracking-tight transition-colors hover:opacity-90">
+          <img src="/ourologo.webp" alt="Pedido Fácil" width="32" height="32" class="h-8 w-auto rounded border border-zinc-200" decoding="async" />
+          <span class="text-zinc-900">Ouroboros - Pedido Fácil</span>
+        </a>
+        <nav class="text-sm text-zinc-600">
+          <a class="rounded px-2 py-1 transition-colors hover:bg-zinc-100 hover:text-zinc-900" href="/pedido">Nuevo pedido</a>
+        </nav>
+      </div>
+    </header>
+    <main class="mx-auto max-w-5xl px-4 py-5">
+      <slot />
+    </main>
+    <footer class="mx-auto max-w-5xl px-4 pb-8 pt-2 text-center text-sm text-zinc-500">
+      <p>
+        Este sistema fue diseñado para facilitar pedidos y reducir errores.
+        Si algo no es claro, <a href="mailto:contacto@ouroboros.com" class="underline transition-colors hover:text-zinc-700">contáctanos</a>.
+      </p>
+    </footer>
+  </body>
+</html>

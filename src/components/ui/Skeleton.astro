@@ -1,0 +1,8 @@
+---
+/** Dorado solo al finalizar; cargas en neutro para no distraer. */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+---
+<div class={`animate-pulse rounded bg-zinc-200 ${className}`}></div>
