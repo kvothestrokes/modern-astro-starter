@@ -16,6 +16,7 @@ Copia `.env.example` a `.env` y completa:
 - `PUBLIC_SUPABASE_URL`
 - `PUBLIC_SUPABASE_ANON_KEY`
 - `PUBLIC_SUPABASE_STORAGE_BUCKET`
+- `SUPABASE_SERVICE_ROLE_KEY` (solo servidor; Dashboard → Settings → API → service_role. Usado por `/api/upload-design` para subir diseños sin exponer la key.)
 
 ## Paso 0: actualizar esquema en Supabase
 

@@ -1,17 +1,7 @@
-export const DESIGN_STATUSES = [
-  'pendiente_pago',
-  'recibido',
-  'corregido',
-  'listo_para_impresion',
-  'en_espera',
-  'impreso',
-  'cancelado',
-  'falta_diseno',
-  'falta_imprimir',
-  'empaquetada',
-  'en_local',
-  'entregada',
-  'enviado'
-] as const;
+import { ORDER_STATUSES, type OrderStatus } from '../lib/order-status';
 
-export type DesignStatus = (typeof DESIGN_STATUSES)[number];
+/** Same as order workflow states; kept for compatibility with designs and existing code. */
+export const DESIGN_STATUSES = ORDER_STATUSES;
+
+/** @deprecated Prefer OrderStatus from lib/order-status. Alias for compatibility. */
+export type DesignStatus = OrderStatus;

@@ -4,7 +4,9 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Badge from '../../../components/ui/Badge.astro';
 import Button from '../../../components/ui/Button.astro';
 import { STATUS_BADGE_CLASS, STATUS_LABELS } from '../../../lib/constants';
+import { getNextStatuses } from '../../../lib/order-status';
 import type { DesignStatus } from '../../../types/status';
+import StatusIcon from '../../../components/admin/StatusIcon.astro';
 
 const { id } = Astro.params;
 const supabase = createClient(import.meta.env.PUBLIC_SUPABASE_URL, import.meta.env.PUBLIC_SUPABASE_ANON_KEY);
@@ -15,7 +17,54 @@ const { data: order } = await supabase
   .eq('id', id)
   .single();
 
-const { data: assignments = [] } = await supabase.from('design_assignments').select('*');
+const designIds = order?.designs?.map((d: { id: string }) => d.id) ?? [];
+const { data: assignments = [] } =
+  designIds.length > 0
+    ? await supabase.from('design_assignments').select('*').in('design_id', designIds)
+    : await Promise.resolve({ data: [] });
+
+const garments = order?.garments ?? [];
+const designs = order?.designs ?? [];
+const garmentsById = new Map(garments.map((g: { id: string }) => [g.id, g]));
+const designsById = new Map(designs.map((d: { id: string }) => [d.id, d]));
+
+type AssignmentPair = { garment: any; design: any; position: string };
+const assignmentPairs: AssignmentPair[] = (assignments as any[])
+  .map((a: { design_id: string; garment_id: string; position?: string }) => ({
+    garment: garmentsById.get(a.garment_id),
+    design: designsById.get(a.design_id),
+    position: a.position ?? 'front'
+  }))
+  .filter((p): p is AssignmentPair & { garment: any; design: any } => Boolean(p.garment && p.design));
+
+/** Agrupar por prenda: cada prenda tiene un array de { design, position } */
+type GarmentWithDesigns = { garment: any; items: { design: any; position: string }[] };
+const byGarmentId = new Map<string, { garment: any; items: { design: any; position: string }[] }>();
+for (const pair of assignmentPairs) {
+  const g = pair.garment;
+  if (!byGarmentId.has(g.id)) {
+    byGarmentId.set(g.id, { garment: g, items: [] });
+  }
+  byGarmentId.get(g.id)!.items.push({ design: pair.design, position: pair.position });
+}
+const garmentsWithDesigns: GarmentWithDesigns[] = Array.from(byGarmentId.values()).sort(
+  (a, b) =>
+    String(a.garment.product_type).localeCompare(String(b.garment.product_type)) ||
+    String(a.garment.size || '').localeCompare(String(b.garment.size || ''))
+);
+
+const garmentIdsAssigned = new Set((assignments as any[]).map((a: { garment_id: string }) => a.garment_id));
+const designIdsAssigned = new Set((assignments as any[]).map((a: { design_id: string }) => a.design_id));
+const unassignedGarments = garments.filter((g: { id: string }) => !garmentIdsAssigned.has(g.id));
+const unassignedDesigns = designs.filter((d: { id: string }) => !designIdsAssigned.has(d.id));
+
+const POSITION_LABELS: Record<string, string> = { front: 'Frente', back: 'Espalda', sleeve: 'Manga', other: 'Otro' };
+function positionLabel(pos: string) {
+  return POSITION_LABELS[pos] || pos || 'Frente';
+}
+
+const orderStatus = (order?.status || 'recibido') as DesignStatus;
+const nextStatuses = order ? getNextStatuses(orderStatus) : [];
 ---
 
 <AdminLayout title={`Pedido ${id}`}>
@@ -35,36 +84,132 @@ const { data: assignments = [] } = await supabase.from('design_assignments').sel
           <p><strong>Fecha:</strong> {new Date(order.created_at).toLocaleString('es-MX')}</p>
         </section>
 
-        <section class="mt-4 grid gap-4 md:grid-cols-2">
-          <article class="rounded-xl border border-zinc-200 bg-white p-4">
-            <h2 class="text-sm font-semibold">Productos</h2>
-            <ul class="mt-2 space-y-2 text-sm">
-              {order.garments?.map((item: any) => <li>{item.product_type} | {item.size || '-'} | {item.color || '-'} | {item.quantity}</li>)}
-            </ul>
-          </article>
-          <article class="rounded-xl border border-zinc-200 bg-white p-4">
-            <h2 class="text-sm font-semibold">Diseños</h2>
-            <div class="mt-2 space-y-3 text-sm">
-              {order.designs?.map((design: any) => {
-                const tone = STATUS_BADGE_CLASS[(design.status || 'falta_diseno') as DesignStatus];
-                const label = STATUS_LABELS[(design.status || 'falta_diseno') as DesignStatus];
-                const assignedCount = assignments.filter((item: any) => item.design_id === design.id).length;
-                return (
-                  <article class="rounded border border-zinc-200 p-2">
-                    <img class="h-24 w-24 rounded object-cover" src={design.original_image_url} alt="Diseño" />
-                    <div class="mt-2">
-                      <Badge label={label} tone={tone} />
-                      <p class="mt-1 text-xs text-zinc-600">Asignado a {assignedCount} producto(s)</p>
-                    </div>
-                    <a class="mt-2 inline-flex rounded border border-zinc-300 px-2 py-1 text-xs" href={design.original_image_url} download>
-                      Descargar original
-                    </a>
-                  </article>
-                );
-              })}
-            </div>
-          </article>
+        <section class="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+          <h2 class="text-sm font-semibold">Estado del pedido</h2>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <Badge label={STATUS_LABELS[orderStatus]} tone={STATUS_BADGE_CLASS[orderStatus]} />
+            {nextStatuses.length > 0 ? (
+              nextStatuses.map((nextStatus) => (
+                <button
+                  type="button"
+                  class="order-status-btn inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50"
+                  data-order-id={order.id}
+                  data-current-status={orderStatus}
+                  data-next-status={nextStatus}
+                >
+                  <StatusIcon status={nextStatus} class="size-4 text-current" />
+                  {STATUS_LABELS[nextStatus]}
+                </button>
+              ))
+            ) : (
+              <span class="text-xs text-zinc-500">—</span>
+            )}
+          </div>
         </section>
+
+        <section class="mt-4 rounded-xl border border-zinc-200 bg-white p-4">
+          <h2 class="text-sm font-semibold">Asignación producto – diseño</h2>
+          <div class="mt-4 space-y-6">
+            {garmentsWithDesigns.map(({ garment: g, items }) => (
+              <article class="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/50">
+                <header class="border-b border-zinc-200 bg-white px-4 py-3">
+                  <p class="text-sm font-medium text-zinc-900">{g.product_type}</p>
+                  <p class="mt-0.5 text-xs text-zinc-600">{g.size || '-'} · {g.color || '-'} · Cant. {g.quantity}</p>
+                </header>
+                <div class="flex flex-wrap gap-4 p-4">
+                  {items.map(({ design: d, position }) => {
+                    const tone = STATUS_BADGE_CLASS[(d.status || 'falta_diseno') as DesignStatus];
+                    const label = STATUS_LABELS[(d.status || 'falta_diseno') as DesignStatus];
+                    const altText = `Diseño ${positionLabel(position)} para ${g.product_type} ${g.size || ''} ${g.color || ''}`.trim();
+                    const ext = (d.original_image_url?.split('.').pop()?.split('?')[0]) || 'png';
+                    const downloadFilename = `diseno-${position}-${g.product_type}-${g.size || 'u'}-${g.color || 'u'}.${ext}`.replace(/\s+/g, '-');
+                    return (
+                      <div class="flex flex-col rounded-lg border border-zinc-200 bg-white p-3">
+                        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{positionLabel(position)}</h3>
+                        <img
+                          class="h-32 w-40 rounded object-cover"
+                          src={d.original_image_url}
+                          alt={altText}
+                        />
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                          <Badge label={label} tone={tone} />
+                        </div>
+                        <button
+                          type="button"
+                          class="mt-2 inline-flex w-fit rounded border border-zinc-300 bg-white px-2 py-1 text-xs hover:bg-zinc-50 js-download-original"
+                          data-url={d.original_image_url}
+                          data-filename={downloadFilename}
+                        >
+                          Descargar original
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {(unassignedGarments.length > 0 || unassignedDesigns.length > 0) && (
+            <div class="mt-6 grid gap-4 border-t border-zinc-200 pt-4 sm:grid-cols-2">
+              {unassignedGarments.length > 0 && (
+                <div class="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-amber-800">Productos sin diseño asignado</h3>
+                  <ul class="mt-2 space-y-1 text-sm text-zinc-700">
+                    {unassignedGarments.map((g: any) => (
+                      <li>{g.product_type} · {g.size || '-'} · {g.color || '-'} · Cant. {g.quantity}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {unassignedDesigns.length > 0 && (
+                <div class="rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-amber-800">Diseños sin producto asignado</h3>
+                  <ul class="mt-2 flex flex-wrap gap-2">
+                    {unassignedDesigns.map((d: any, i: number) => (
+                      <li class="flex items-center gap-2">
+                        <img class="h-12 w-12 rounded object-cover" src={d.original_image_url} alt="Diseño sin asignar" />
+                        <button
+                          type="button"
+                          class="text-xs text-zinc-600 underline hover:text-zinc-900 js-download-original"
+                          data-url={d.original_image_url}
+                          data-filename={`diseno-sin-asignar-${i + 1}.png`}
+                        >
+                          Descargar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <script>
+          import '../pedidos-client';
+        </script>
+        <script is:inline>
+          document.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('.js-download-original');
+            if (!btn || !btn.dataset.url) return;
+            e.preventDefault();
+            const url = btn.dataset.url;
+            const filename = btn.dataset.filename || 'diseno.png';
+            fetch(url, { mode: 'cors' })
+              .then((r) => r.blob())
+              .then((blob) => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(a.href);
+              })
+              .catch(() => {
+                window.open(url, '_blank');
+              });
+          });
+        </script>
       </>
     )
   }

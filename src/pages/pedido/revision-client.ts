@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { INITIAL_ORDER_STATUS } from '../../lib/order-status';
 
 const KEY = 'order-draft-v1';
 
@@ -161,11 +162,7 @@ async function submitOrder() {
   if (confirmBtn) (confirmBtn as HTMLButtonElement).disabled = true;
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const rawBucket =
-    (import.meta.env.PUBLIC_SUPABASE_STORAGE_BUCKET as string) || 'designs';
-  // Avoid using a JWT (anon key) as bucket name by mistake — causes 400 from Storage
-  const bucket =
-    rawBucket.startsWith('eyJ') || rawBucket.length > 100 ? 'designs' : rawBucket;
+
   try {
     const { data: customer, error: customerError } = await supabase
       .from('customers')
@@ -184,9 +181,7 @@ async function submitOrder() {
       .from('orders')
       .insert({
         customer_id: customer.id,
-        status:
-          (draft.designs as Array<Record<string, unknown>>)?.[0]?.status ||
-          'falta_diseno',
+        status: INITIAL_ORDER_STATUS,
         requires_invoice: Boolean(draft.requiresInvoice)
       })
       .select('id')
@@ -218,20 +213,19 @@ async function submitOrder() {
         ? String(design.storagePath)
         : null;
       if (imageUrl.startsWith('data:')) {
-        const res = await fetch(imageUrl);
-        const blob = await res.blob();
-        const ext =
-          (imageUrl.match(/data:image\/(\w+)/) || [null, 'jpg'])[1] || 'jpg';
-        const filePath = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, blob, { cacheControl: '3600', upsert: false });
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(filePath);
-        imageUrl = urlData.publicUrl;
-        storagePath = filePath;
+        console.log('[submitOrder] Uploading design via API…');
+        const uploadRes = await fetch('/api/upload-design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl: imageUrl })
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok) {
+          console.error('[submitOrder] Upload API error', uploadRes.status, uploadJson);
+          throw new Error(uploadJson?.error || `Upload failed: ${uploadRes.status}`);
+        }
+        imageUrl = uploadJson.publicUrl;
+        storagePath = uploadJson.storagePath ?? null;
       }
       const { data, error } = await supabase
         .from('designs')
@@ -239,7 +233,7 @@ async function submitOrder() {
           order_id: order.id,
           original_image_url: imageUrl,
           storage_path: storagePath,
-          status: design.status || 'falta_diseno',
+          status: design.status || 'recibido',
           notes: design.notes || null
         })
         .select('id')
@@ -266,10 +260,16 @@ async function submitOrder() {
 
     localStorage.removeItem(KEY);
     window.location.href = `/pedido/exito?orderId=${order.id}`;
-  } catch {
+  } catch (err) {
+    const detail =
+      err && typeof err === 'object' && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : String(err);
+    console.error('[submitOrder] Error', err, { detail });
     if (feedbackEl)
       feedbackEl.textContent =
-        'No pudimos enviar el pedido. Intenta de nuevo en un momento.';
+        'No pudimos enviar el pedido. Revisa la consola (F12) para más detalle. Error: ' +
+        detail;
     if (confirmBtn) (confirmBtn as HTMLButtonElement).disabled = false;
   }
 }

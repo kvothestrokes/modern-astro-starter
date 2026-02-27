@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { OrderDraft } from '../types/order';
 import type { DesignStatus } from '../types/status';
+import { INITIAL_ORDER_STATUS, type OrderStatus } from './order-status';
 
 const PAGE_SIZE = 20;
 
@@ -23,7 +24,7 @@ export async function createOrderGraph(draft: OrderDraft) {
     .from('orders')
     .insert({
       customer_id: customer.id,
-      status: draft.designs[0]?.status || 'falta_diseno',
+      status: INITIAL_ORDER_STATUS,
       requires_invoice: draft.requiresInvoice
     })
     .select('id')
@@ -31,56 +32,50 @@ export async function createOrderGraph(draft: OrderDraft) {
 
   if (orderError) throw orderError;
 
-  const garmentsPayload = draft.products.map((item) => ({
-    order_id: order.id,
-    product_type: item.productType,
-    size: item.size || null,
-    color: item.color || null,
-    quantity: item.quantity,
-    notes: item.notes || null
-  }));
+  const productIdMap = new Map<string, string>();
+  for (const item of draft.products) {
+    const { data, error } = await supabase
+      .from('garments')
+      .insert({
+        order_id: order.id,
+        product_type: item.productType,
+        size: item.size || null,
+        color: item.color || null,
+        quantity: item.quantity,
+        notes: item.notes || null
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    productIdMap.set(item.localId, data.id);
+  }
 
-  const { data: garments, error: garmentsError } = await supabase
-    .from('garments')
-    .insert(garmentsPayload)
-    .select('id, product_type');
-
-  if (garmentsError) throw garmentsError;
-
-  const designsPayload = draft.designs.map((design) => ({
-    order_id: order.id,
-    original_image_url: design.originalImageUrl,
-    storage_path: design.storagePath || null,
-    status: design.status,
-    notes: design.notes || null
-  }));
-
-  const { data: designs, error: designsError } = await supabase
-    .from('designs')
-    .insert(designsPayload)
-    .select('id, original_image_url');
-
-  if (designsError) throw designsError;
-
-  const garmentByProductType = new Map(garments.map((g) => [g.product_type, g.id]));
-  const designByUrl = new Map(designs.map((d) => [d.original_image_url, d.id]));
+  const designIdMap = new Map<string, string>();
+  for (const design of draft.designs) {
+    const { data, error } = await supabase
+      .from('designs')
+      .insert({
+        order_id: order.id,
+        original_image_url: design.originalImageUrl,
+        storage_path: design.storagePath || null,
+        status: design.status,
+        notes: design.notes || null
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    designIdMap.set(design.localId, data.id);
+  }
 
   const assignmentsPayload = draft.assignments
-    .map((item) => {
-      const draftDesign = draft.designs.find((d) => d.localId === item.designLocalId);
-      const draftProduct = draft.products.find((p) => p.localId === item.productLocalId);
-      const designId = draftDesign ? designByUrl.get(draftDesign.originalImageUrl) : undefined;
-      const garmentId = draftProduct ? garmentByProductType.get(draftProduct.productType) : undefined;
-      if (!designId || !garmentId) return null;
-      return {
-        design_id: designId,
-        garment_id: garmentId,
-        position: item.position,
-        scale: item.scale || null,
-        notes: item.notes || null
-      };
-    })
-    .filter(Boolean);
+    .map((item) => ({
+      design_id: designIdMap.get(item.designLocalId),
+      garment_id: productIdMap.get(item.productLocalId),
+      position: item.position || 'front',
+      scale: item.scale || null,
+      notes: item.notes || null
+    }))
+    .filter((item): item is typeof item & { design_id: string; garment_id: string } => Boolean(item.design_id && item.garment_id));
 
   if (assignmentsPayload.length > 0) {
     const { error: assignmentsError } = await supabase.from('design_assignments').insert(assignmentsPayload);
@@ -119,4 +114,8 @@ export async function listOrders(options: { page?: number; status?: DesignStatus
 
 export async function updateDesignStatus(designId: string, status: DesignStatus) {
   return supabase.from('designs').update({ status }).eq('id', designId);
+}
+
+export async function updateOrderStatus(orderId: string, newStatus: OrderStatus) {
+  return supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
 }
