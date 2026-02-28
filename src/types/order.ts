@@ -38,3 +38,11 @@ export interface AssignmentDraft {
   scale?: number;
   notes?: string;
 }
+
+/** Snapshot of a completed order for localStorage history (no designs/assignments). */
+export interface OrderHistoryItem {
+  orderId: string;
+  createdAt: string;
+  customerName: string;
+  products: { productType: string; size?: string; color?: string; quantity: number }[];
+}

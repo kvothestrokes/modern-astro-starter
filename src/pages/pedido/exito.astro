@@ -3,6 +3,18 @@ import PublicLayout from '../../layouts/PublicLayout.astro';
 import Button from '../../components/ui/Button.astro';
 
 const orderId = Astro.url.searchParams.get('orderId');
+// Short, easy-to-read code for the customer (first 8 chars of UUID, uppercase)
+const shortOrderId = orderId ? orderId.slice(0, 8).toUpperCase() : null;
+
+const rawPhone = import.meta.env.PUBLIC_WHATSAPP_BUSINESS_PHONE;
+const whatsappPhone = typeof rawPhone === 'string' ? rawPhone.replace(/\D/g, '').trim() : '';
+const message = shortOrderId
+  ? `¡Hola! Se ha registrado un nuevo pedido. Número de pedido: ${shortOrderId}`
+  : '';
+const waUrl =
+  whatsappPhone && shortOrderId
+    ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+    : null;
 ---
 
 <PublicLayout title="Pedido enviado">
@@ -15,9 +27,15 @@ const orderId = Astro.url.searchParams.get('orderId');
     <p class="text-sm font-semibold text-emerald-800">Todo listo, recibimos tu pedido</p>
     <h1 class="mt-2 text-xl font-semibold text-zinc-900">Gracias por tu confianza</h1>
     <p class="mt-2 text-sm text-zinc-600">
-      Tu número de pedido es: <strong class="text-zinc-900">{orderId || 'pendiente de generar'}</strong>
+      Tu número de pedido es: <strong class="font-mono text-lg tracking-wide text-zinc-900">{shortOrderId || 'pendiente de generar'}</strong>
     </p>
     <div class="mt-5 flex flex-wrap justify-center gap-2">
+      {waUrl && (
+        <Button href={waUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
+          Avisar por WhatsApp
+        </Button>
+      )}
+      <Button href="/pedido/historial" variant="secondary">Ver mi historial de pedidos</Button>
       <Button href="/pedido" variant="secondary">Crear otro pedido</Button>
       <Button href="/">Inicio</Button>
     </div>

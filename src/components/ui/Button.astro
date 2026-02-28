@@ -6,9 +6,11 @@ interface Props {
   class?: string;
   disabled?: boolean;
   id?: string;
+  target?: string;
+  rel?: string;
 }
 
-const { href, type = 'button', variant = 'primary', class: className = '', disabled = false, id } = Astro.props;
+const { href, type = 'button', variant = 'primary', class: className = '', disabled = false, id, target, rel } = Astro.props;
 
 // Dorado en primary refuerza confianza y acción principal; no saturar. Secondary/ghost sin dorado.
 const variants = {
@@ -28,7 +30,7 @@ const classes = baseClasses + disabledClasses;
 
 {
   href ? (
-    <a class={classes} href={href}>
+    <a class={classes} href={href} target={target} rel={rel}>
       <slot />
     </a>
   ) : (

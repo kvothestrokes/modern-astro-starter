@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { INITIAL_ORDER_STATUS } from '../../lib/order-status';
+import { addOrderToHistory } from '../../lib/orderHistory';
+import { addPhoneIfNew } from '../../lib/savedPhones';
 
 const KEY = 'order-draft-v1';
 
@@ -164,23 +166,55 @@ async function submitOrder() {
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   try {
-    const { data: customer, error: customerError } = await supabase
-      .from('customers')
-      .insert({
-        name: draft.customerName,
-        email: draft.customerEmail || null,
-        phone: draft.customerPhone || null,
-        customer_type: draft.customerType || 'mayorista',
-        notes: draft.notes || null
-      })
-      .select('id')
-      .single();
-    if (customerError) throw customerError;
+    const phone = draft.customerPhone
+      ? String(draft.customerPhone).trim() || null
+      : null;
+    let customerId: string;
+
+    if (phone) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', phone)
+        .maybeSingle();
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        const { data: newCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            name: draft.customerName,
+            email: draft.customerEmail || null,
+            phone,
+            customer_type: draft.customerType || 'mayorista',
+            notes: draft.notes || null
+          })
+          .select('id')
+          .single();
+        if (customerError) throw customerError;
+        customerId = newCustomer.id;
+        addPhoneIfNew(phone);
+      }
+    } else {
+      const { data: newCustomer, error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          name: draft.customerName,
+          email: draft.customerEmail || null,
+          phone: null,
+          customer_type: draft.customerType || 'mayorista',
+          notes: draft.notes || null
+        })
+        .select('id')
+        .single();
+      if (customerError) throw customerError;
+      customerId = newCustomer.id;
+    }
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
-        customer_id: customer.id,
+        customer_id: customerId,
         status: INITIAL_ORDER_STATUS,
         requires_invoice: Boolean(draft.requiresInvoice)
       })
@@ -257,6 +291,19 @@ async function submitOrder() {
         .insert(assignmentsPayload);
       if (error) throw error;
     }
+
+    const historyItem = {
+      orderId: order.id,
+      createdAt: new Date().toISOString(),
+      customerName: String(draft.customerName ?? ''),
+      products: ((draft.products as Array<Record<string, unknown>>) || []).map((p) => ({
+        productType: String(p.productType ?? ''),
+        size: p.size != null ? String(p.size) : undefined,
+        color: p.color != null ? String(p.color) : undefined,
+        quantity: Number(p.quantity) || 1
+      }))
+    };
+    addOrderToHistory(historyItem);
 
     localStorage.removeItem(KEY);
     window.location.href = `/pedido/exito?orderId=${order.id}`;

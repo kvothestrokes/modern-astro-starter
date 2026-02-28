@@ -24,7 +24,8 @@ const { title = 'Pedidos de personalizados' } = Astro.props;
           <img src="/ourologo.webp" alt="Pedido Fácil" width="32" height="32" class="h-8 w-auto rounded border border-zinc-200" decoding="async" />
           <span class="text-zinc-900">Ouroboros - Pedido Fácil</span>
         </a>
-        <nav class="text-sm text-zinc-600">
+        <nav class="flex items-center gap-1 text-sm text-zinc-600">
+          <a class="rounded px-2 py-1 transition-colors hover:bg-zinc-100 hover:text-zinc-900" href="/pedido/historial">Mis pedidos</a>
           <a class="rounded px-2 py-1 transition-colors hover:bg-zinc-100 hover:text-zinc-900" href="/pedido">Nuevo pedido</a>
         </nav>
       </div>
