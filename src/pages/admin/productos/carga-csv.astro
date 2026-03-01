@@ -1,0 +1,111 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { bulkInsertProducts } from '../../../lib/catalog/admin-products';
+import type { ProductBulkRow } from '../../../types/catalog';
+
+export const prerender = false;
+
+let result: { inserted: number; errors: { row: number; message: string }[] } | null = null;
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const file = formData.get('csv_file') as File | null;
+  if (file && file.size > 0) {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) {
+      result = { inserted: 0, errors: [{ row: 0, message: 'El CSV debe tener al menos cabecera y una fila de datos.' }] };
+    } else {
+      const headers = parseCSVLine(lines[0]);
+      const columnIndex = (name: string) => {
+        const n = name.toLowerCase().replace(/\s+/g, '_');
+        const i = headers.findIndex((h) => h.toLowerCase().replace(/\s+/g, '_') === n || h.toLowerCase() === name.toLowerCase());
+        return i >= 0 ? i : -1;
+      };
+      const idx = {
+        name: columnIndex('name') >= 0 ? columnIndex('name') : columnIndex('nombre'),
+        product_type: columnIndex('product_type') >= 0 ? columnIndex('product_type') : columnIndex('tipo'),
+        category: columnIndex('category') >= 0 ? columnIndex('category') : columnIndex('categoria'),
+        subcategory: columnIndex('subcategory') >= 0 ? columnIndex('subcategory') : columnIndex('subcategoria'),
+        price: columnIndex('price') >= 0 ? columnIndex('price') : columnIndex('precio'),
+        sale_price: columnIndex('sale_price') >= 0 ? columnIndex('sale_price') : columnIndex('precio_oferta'),
+        tags: columnIndex('tags') >= 0 ? columnIndex('tags') : columnIndex('etiquetas'),
+        image_urls: columnIndex('image_urls') >= 0 ? columnIndex('image_urls') : columnIndex('imagenes') >= 0 ? columnIndex('imagenes') : columnIndex('image_url')
+      };
+
+      const rows: ProductBulkRow[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseCSVLine(lines[i]);
+        const get = (key: keyof typeof idx) => (idx[key] >= 0 && cells[idx[key]] !== undefined ? cells[idx[key]].trim() : '');
+        rows.push({
+          name: get('name'),
+          product_type: get('product_type'),
+          category: get('category'),
+          subcategory: get('subcategory') || undefined,
+          price: get('price') ? Number(get('price')) : 0,
+          sale_price: get('sale_price') ? Number(get('sale_price')) : undefined,
+          tags: get('tags') ? get('tags').split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+          image_urls: get('image_urls') ? get('image_urls').split(/[\s,]+/).map((u) => u.trim()).filter(Boolean) : undefined
+        });
+      }
+      result = await bulkInsertProducts(rows);
+    }
+  } else {
+    result = { inserted: 0, errors: [{ row: 0, message: 'Selecciona un archivo CSV.' }] };
+  }
+}
+
+function parseCSVLine(line: string): string[] {
+  const out: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      inQuotes = !inQuotes;
+    } else if ((c === ',' && !inQuotes) || c === '\t') {
+      out.push(current.trim());
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  out.push(current.trim());
+  return out;
+}
+---
+
+<AdminLayout title="Carga CSV | Admin">
+  <h1 class="text-xl font-semibold tracking-tight">Carga masiva de productos (CSV)</h1>
+  <a href="/admin/productos" class="mt-2 inline-block text-sm text-zinc-600 hover:underline">← Volver al listado</a>
+
+  <div class="mt-6 max-w-2xl rounded-lg border border-zinc-200 bg-white p-6">
+    <p class="text-sm text-zinc-600">
+      La primera fila debe ser la cabecera. Columnas esperadas (mapeo automático): <code class="rounded bg-zinc-100 px-1">name</code> (o nombre),
+      <code class="rounded bg-zinc-100 px-1">product_type</code> (o tipo), <code class="rounded bg-zinc-100 px-1">category</code> (o categoria),
+      <code class="rounded bg-zinc-100 px-1">subcategory</code>, <code class="rounded bg-zinc-100 px-1">price</code> (o precio),
+      <code class="rounded bg-zinc-100 px-1">sale_price</code>, <code class="rounded bg-zinc-100 px-1">tags</code> (separados por coma),
+      <code class="rounded bg-zinc-100 px-1">image_urls</code> (URLs separadas por coma o espacio).
+    </p>
+
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+      <label for="csv_file" class="block text-sm font-medium text-zinc-700">Archivo CSV</label>
+      <input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required class="mt-2 block w-full text-sm text-zinc-600 file:mr-4 file:rounded file:border-0 file:bg-zinc-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200" />
+      <button type="submit" class="mt-4 rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Importar</button>
+    </form>
+  </div>
+
+  {result && (
+    <div class="mt-6 max-w-2xl rounded-lg border border-zinc-200 bg-white p-6">
+      <p class="font-medium text-zinc-900">{result.inserted} producto(s) insertado(s).</p>
+      {result.errors.length > 0 && (
+        <ul class="mt-2 list-inside list-disc text-sm text-red-700">
+          {result.errors.map((e) => (
+            <li>Fila {e.row}: {e.message}</li>
+          ))}
+        </ul>
+      )}
+      <a href="/admin/productos" class="mt-4 inline-block text-sm text-catalog-600 hover:underline">Ver listado de productos</a>
+    </div>
+  )}
+</AdminLayout>

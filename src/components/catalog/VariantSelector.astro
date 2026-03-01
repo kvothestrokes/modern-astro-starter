@@ -1,0 +1,40 @@
+---
+import type { ProductVariantRow } from '../../types/catalog';
+
+interface Props {
+  variants: ProductVariantRow[];
+  name: string;
+  required?: boolean;
+}
+
+const { variants, name, required = true } = Astro.props;
+const byLabel = variants.reduce((acc, v) => {
+  if (!acc[v.label]) acc[v.label] = [];
+  acc[v.label].push(v);
+  return acc;
+}, {} as Record<string, ProductVariantRow[]>);
+---
+
+<div class="variant-selector space-y-3">
+  {Object.entries(byLabel).map(([label, opts]) => (
+    <div>
+      <label for={`variant-${name}-${label}`} class="mb-1 block text-sm font-medium text-zinc-700">
+        {label} {required ? '*' : ''}
+      </label>
+      <select
+        id={`variant-${name}-${label}`}
+        name={`variant_${label}`}
+        class="variant-select w-full rounded border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:border-catalog-500 focus:outline-none focus:ring-1 focus:ring-catalog-500"
+        required={required}
+        data-variant-label={label}
+      >
+        <option value="">Selecciona una opción...</option>
+        {opts.map((v) => (
+          <option value={v.value} data-variant-id={v.id}>
+            {v.value} {v.stock != null ? `(Stock: ${v.stock})` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  ))}
+</div>

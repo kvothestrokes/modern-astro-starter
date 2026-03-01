@@ -1,0 +1,197 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { getProductById } from '../../../../lib/catalog/products';
+import { updateProduct } from '../../../../lib/catalog/admin-products';
+import { CATEGORIES, PRODUCT_TYPES_CATALOG } from '../../../../lib/catalog/categories';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/productos');
+
+let product = await getProductById(id);
+if (!product) return Astro.redirect('/admin/productos');
+
+let error = '';
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const name = (formData.get('name') as string)?.trim();
+    const slug = (formData.get('slug') as string)?.trim();
+    const product_type = (formData.get('product_type') as string)?.trim();
+    const category = (formData.get('category') as string)?.trim();
+    const subcategory = (formData.get('subcategory') as string)?.trim() || null;
+    const price = Number(formData.get('price'));
+    const salePriceRaw = formData.get('sale_price');
+    const sale_price = salePriceRaw != null && String(salePriceRaw).trim() !== '' ? Number(salePriceRaw) : null;
+    const tagsStr = (formData.get('tags') as string)?.trim();
+    const tags = tagsStr ? tagsStr.split(',').map((t) => t.trim()).filter(Boolean) : [];
+    const imageUrlsStr = (formData.get('image_urls') as string)?.trim();
+    const image_urls = imageUrlsStr ? imageUrlsStr.split(/\s+/).map((u) => u.trim()).filter(Boolean) : [];
+    const is_active = formData.get('is_active') === 'on';
+
+    const variantsRaw = formData.get('variants_json') as string | null;
+    let variants: { label: string; value: string; stock?: number | null }[] = [];
+    if (variantsRaw) {
+      try {
+        variants = JSON.parse(variantsRaw);
+      } catch {}
+    }
+
+    if (!name || !slug || !product_type || !category) {
+      error = 'Nombre, slug, tipo y categoría son obligatorios.';
+    } else if (Number.isNaN(price) || price < 0) {
+      error = 'Precio inválido.';
+    } else {
+      await updateProduct(
+        id,
+        { name, slug, product_type, category, subcategory, price, sale_price, tags, image_urls, is_active },
+        variants
+      );
+      return Astro.redirect(`/admin/productos/editar/${id}?saved=1`);
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+}
+
+product = await getProductById(id);
+if (!product) return Astro.redirect('/admin/productos');
+
+const url = Astro.url;
+const saved = url.searchParams.get('saved');
+const created = url.searchParams.get('created');
+const variants = product.product_variants ?? [];
+---
+
+<AdminLayout title={`Editar: ${product.name} | Admin`}>
+  <h1 class="text-xl font-semibold tracking-tight">Editar producto</h1>
+  <a href="/admin/productos" class="mt-2 inline-block text-sm text-zinc-600 hover:underline">← Volver al listado</a>
+
+  {saved && <p class="mt-4 rounded bg-green-100 p-3 text-sm text-green-800">Cambios guardados.</p>}
+  {created && <p class="mt-4 rounded bg-green-100 p-3 text-sm text-green-800">Producto creado. Añade variantes abajo si lo necesitas.</p>}
+  {error && <p class="mt-4 rounded bg-red-100 p-3 text-sm text-red-800">{error}</p>}
+
+  <form method="post" id="edit-form" class="mt-6 max-w-2xl space-y-4">
+    <div>
+      <label for="name" class="block text-sm font-medium text-zinc-700">Nombre *</label>
+      <input type="text" id="name" name="name" value={product.name} required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div>
+      <label for="slug" class="block text-sm font-medium text-zinc-700">Slug (URL) *</label>
+      <input type="text" id="slug" name="slug" value={product.slug} required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label for="product_type" class="block text-sm font-medium text-zinc-700">Tipo de producto *</label>
+        <select id="product_type" name="product_type" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2">
+          {PRODUCT_TYPES_CATALOG.map((t) => (
+            <option value={t} selected={t === product.product_type}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label for="category" class="block text-sm font-medium text-zinc-700">Categoría *</label>
+        <select id="category" name="category" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2">
+          {CATEGORIES.map((c) => (
+            <option value={c.slug} selected={c.slug === product.category}>{c.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+    <div>
+      <label for="subcategory" class="block text-sm font-medium text-zinc-700">Subcategoría</label>
+      <input type="text" id="subcategory" name="subcategory" value={product.subcategory ?? ''} class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label for="price" class="block text-sm font-medium text-zinc-700">Precio *</label>
+        <input type="number" id="price" name="price" step="0.01" min="0" value={product.price} required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+      </div>
+      <div>
+        <label for="sale_price" class="block text-sm font-medium text-zinc-700">Precio oferta</label>
+        <input type="number" id="sale_price" name="sale_price" step="0.01" min="0" value={product.sale_price ?? ''} class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+      </div>
+    </div>
+    <div>
+      <label for="tags" class="block text-sm font-medium text-zinc-700">Tags (separados por coma)</label>
+      <input type="text" id="tags" name="tags" value={(product.tags ?? []).join(', ')} class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div>
+      <label for="image_urls" class="block text-sm font-medium text-zinc-700">URLs de imágenes (una por línea o separadas por espacio)</label>
+      <textarea id="image_urls" name="image_urls" rows="3" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2">{(product.image_urls ?? []).join('\n')}</textarea>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" id="is_active" name="is_active" checked={product.is_active} class="rounded border-zinc-300" />
+      <label for="is_active" class="text-sm text-zinc-700">Producto activo (visible en tienda)</label>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-zinc-700">Variantes (Talla, Color, etc.)</label>
+      <p class="mt-1 text-xs text-zinc-500">Añade filas: etiqueta (ej. Talla), valor (ej. M), stock opcional.</p>
+      <div id="variants-container" class="mt-2 space-y-2">
+        {variants.map((v) => (
+          <div class="variant-row flex gap-2 items-center">
+            <input type="text" placeholder="Label" value={v.label} class="rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-label />
+            <input type="text" placeholder="Value" value={v.value} class="rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-value />
+            <input type="number" placeholder="Stock" value={v.stock ?? ''} class="w-20 rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-stock />
+            <button type="button" class="remove-variant text-sm text-red-600 hover:underline">Quitar</button>
+          </div>
+        ))}
+      </div>
+      <button type="button" id="add-variant-btn" class="mt-2 text-sm text-catalog-600 hover:underline">+ Añadir variante</button>
+      <input type="hidden" name="variants_json" id="variants_json" value={JSON.stringify(variants)} />
+    </div>
+
+    <div class="flex gap-2">
+      <button type="submit" class="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Guardar cambios</button>
+      <a href={`/tienda/${product.slug}`} target="_blank" rel="noopener" class="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Ver en tienda</a>
+      <a href="/admin/productos" class="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancelar</a>
+    </div>
+  </form>
+</AdminLayout>
+
+<script>
+  const form = document.getElementById('edit-form');
+  const container = document.getElementById('variants-container');
+  const hidden = document.getElementById('variants_json');
+  const addBtn = document.getElementById('add-variant-btn');
+
+  function serializeVariants() {
+    const rows = container?.querySelectorAll('.variant-row') ?? [];
+    const arr = Array.from(rows).map((row) => {
+      const label = (row.querySelector('[data-variant-label]') as HTMLInputElement)?.value?.trim() || '';
+      const value = (row.querySelector('[data-variant-value]') as HTMLInputElement)?.value?.trim() || '';
+      const stockRaw = (row.querySelector('[data-variant-stock]') as HTMLInputElement)?.value;
+      const stock = stockRaw === '' ? null : parseInt(stockRaw, 10);
+      return { label, value, stock: Number.isNaN(stock) ? null : stock };
+    }).filter((v) => v.label && v.value);
+    if (hidden) hidden.value = JSON.stringify(arr);
+  }
+
+  addBtn?.addEventListener('click', () => {
+    const div = document.createElement('div');
+    div.className = 'variant-row flex gap-2';
+    div.innerHTML = `
+      <input type="text" placeholder="Label" class="rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-label />
+      <input type="text" placeholder="Value" class="rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-value />
+      <input type="number" placeholder="Stock" class="w-20 rounded border border-zinc-300 px-2 py-1 text-sm" data-variant-stock />
+      <button type="button" class="remove-variant text-red-600 hover:underline">Quitar</button>
+    `;
+    div.querySelector('.remove-variant')?.addEventListener('click', () => {
+      div.remove();
+      serializeVariants();
+    });
+    container?.appendChild(div);
+    serializeVariants();
+  });
+
+  container?.querySelectorAll('.variant-row').forEach((row) => {
+    row.querySelector('.remove-variant')?.addEventListener('click', () => {
+      row.remove();
+      serializeVariants();
+    });
+  });
+
+  form?.addEventListener('submit', () => serializeVariants());
+</script>

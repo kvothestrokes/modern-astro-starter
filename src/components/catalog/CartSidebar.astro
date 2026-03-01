@@ -1,0 +1,148 @@
+---
+---
+<div id="cart-sidebar-root" class="contents">
+  <!-- Overlay -->
+  <div
+    id="cart-overlay"
+    class="fixed inset-0 z-50 hidden bg-black/40 transition-opacity"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Panel lateral -->
+  <aside
+    id="cart-panel"
+    class="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform duration-300 ease-out translate-x-full"
+    aria-label="Carrito de compras"
+  >
+    <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+      <h2 class="text-lg font-semibold text-zinc-900">Carrito</h2>
+      <button
+        type="button"
+        id="cart-close-btn"
+        class="rounded p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-catalog-500"
+        aria-label="Cerrar carrito"
+      >
+        <span class="sr-only">Cerrar</span>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <div id="cart-items" class="flex-1 overflow-y-auto p-4">
+      <!-- Items inyectados por script -->
+    </div>
+
+    <div class="border-t border-zinc-200 p-4">
+      <p class="flex justify-between text-sm font-medium text-zinc-700">
+        <span>Subtotal:</span>
+        <span id="cart-subtotal">$0.00</span>
+      </p>
+      <div class="mt-4 flex flex-col gap-2">
+        <a
+          href="/pedido"
+          id="cart-view-pedido"
+          class="block rounded border border-zinc-300 bg-white py-2.5 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Ver carrito / Pedido
+        </a>
+        <button
+          type="button"
+          id="cart-checkout-btn"
+          class="w-full rounded bg-catalog-500 py-2.5 text-sm font-medium text-white hover:bg-catalog-600 focus:outline-none focus:ring-2 focus:ring-catalog-500"
+        >
+          CHECKOUT
+        </button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  import { getItems, getSubtotal, removeItem, setQuantity, checkoutToPedido } from '../../lib/catalog/cartStore';
+
+  const overlay = document.getElementById('cart-overlay');
+  const panel = document.getElementById('cart-panel');
+  const itemsContainer = document.getElementById('cart-items');
+  const subtotalEl = document.getElementById('cart-subtotal');
+
+  function formatMoney(n: number) {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+  }
+
+  function renderItems() {
+    if (!itemsContainer) return;
+    const items = getItems();
+    if (items.length === 0) {
+      itemsContainer.innerHTML = '<p class="py-8 text-center text-zinc-500">Tu carrito está vacío.</p>';
+      if (subtotalEl) subtotalEl.textContent = formatMoney(0);
+      return;
+    }
+    itemsContainer.innerHTML = items
+      .map(
+        (item) => {
+          const price = item.sale_price != null ? item.sale_price : item.price;
+          const subtotal = price * item.quantity;
+          const variantParts = [];
+          if (item.size) variantParts.push(`Talla: ${item.size}`);
+          if (item.color) variantParts.push(`Color: ${item.color}`);
+          const variantText = variantParts.length > 0 ? variantParts.join(', ') : `${item.variant.label}: ${item.variant.value}`;
+          return `
+        <div class="cart-item flex gap-3 border-b border-zinc-100 py-3" data-item-id="${item.id}">
+          <img src="${item.imageUrl || ''}" alt="" class="h-20 w-20 shrink-0 rounded bg-zinc-100 object-cover" />
+          <div class="min-w-0 flex-1">
+            <p class="font-medium text-zinc-900">${escapeHtml(item.name)}</p>
+            <p class="text-xs text-zinc-500">${escapeHtml(variantText)}</p>
+            <p class="mt-1 text-sm text-zinc-600">${item.quantity} × ${formatMoney(price)}</p>
+            <div class="mt-1 flex items-center gap-2">
+              <button type="button" class="cart-item-remove text-xs text-red-600 hover:underline" data-item-id="${item.id}">Quitar</button>
+            </div>
+          </div>
+          <p class="font-medium text-zinc-900">${formatMoney(subtotal)}</p>
+        </div>
+      `;
+        }
+      )
+      .join('');
+
+    if (subtotalEl) subtotalEl.textContent = formatMoney(getSubtotal());
+
+    itemsContainer.querySelectorAll('.cart-item-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).getAttribute('data-item-id');
+        if (id) removeItem(id);
+        renderItems();
+      });
+    });
+  }
+
+  function escapeHtml(str: string) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function openCart() {
+    overlay?.classList.remove('hidden');
+    panel?.classList.remove('translate-x-full');
+    document.body.style.overflow = 'hidden';
+    renderItems();
+  }
+
+  function closeCart() {
+    overlay?.classList.add('hidden');
+    panel?.classList.add('translate-x-full');
+    document.body.style.overflow = '';
+  }
+
+  window.addEventListener('catalog-cart-open', openCart);
+  document.getElementById('cart-close-btn')?.addEventListener('click', closeCart);
+  overlay?.addEventListener('click', closeCart);
+
+  document.getElementById('cart-checkout-btn')?.addEventListener('click', () => {
+    if (getItems().length === 0) return;
+    checkoutToPedido();
+  });
+
+  window.addEventListener('catalog-cart-update', renderItems);
+
+  renderItems();
+</script>

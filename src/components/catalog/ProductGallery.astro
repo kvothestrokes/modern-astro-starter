@@ -1,0 +1,63 @@
+---
+interface Props {
+  imageUrls: string[];
+  productName: string;
+  discountPercent?: number;
+}
+
+const { imageUrls, productName, discountPercent } = Astro.props;
+const mainUrl = imageUrls[0] ?? '';
+---
+
+<div class="product-gallery flex flex-col gap-3">
+  <div class="relative aspect-square overflow-hidden rounded-lg bg-zinc-100">
+    <img
+      id="gallery-main"
+      src={mainUrl}
+      alt={productName}
+      class="h-full w-full object-cover"
+    />
+    {discountPercent != null && discountPercent > 0 && (
+      <span class="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-catalog-500 text-sm font-bold text-white shadow">
+        -{discountPercent}%
+      </span>
+    )}
+    <button
+      type="button"
+      class="absolute bottom-2 left-2 rounded bg-white/90 p-2 shadow hover:bg-white"
+      aria-label="Ampliar"
+    >
+      <svg class="h-5 w-5 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+    </button>
+  </div>
+  {imageUrls.length > 1 && (
+    <div class="flex gap-2 overflow-x-auto pb-1" role="tablist">
+      {imageUrls.map((url, i) => (
+        <button
+          type="button"
+          class="gallery-thumb shrink-0 rounded border-2 border-transparent transition hover:border-zinc-300 data-[active=true]:border-catalog-500"
+          data-index={i}
+          aria-label={`Ver imagen ${i + 1}`}
+        >
+          <img src={url} alt="" class="h-16 w-16 rounded object-cover" />
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+<script>
+  const main = document.getElementById('gallery-main') as HTMLImageElement | null;
+  const thumbs = document.querySelectorAll('.gallery-thumb');
+  thumbs.forEach((thumb, i) => {
+    thumb.addEventListener('click', () => {
+      const img = thumb.querySelector('img');
+      if (main && img?.src) {
+        main.src = img.src;
+        thumbs.forEach((t) => t.removeAttribute('data-active'));
+        thumb.setAttribute('data-active', 'true');
+      }
+    });
+  });
+  if (thumbs[0]) thumbs[0].setAttribute('data-active', 'true');
+</script>

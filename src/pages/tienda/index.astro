@@ -1,0 +1,39 @@
+---
+import CatalogLayout from '../../layouts/CatalogLayout.astro';
+import ProductGrid from '../../components/catalog/ProductGrid.astro';
+import { listProducts } from '../../lib/catalog/products';
+import { CATEGORIES } from '../../lib/catalog/categories';
+
+export const prerender = false;
+
+const url = Astro.url;
+const category = url.searchParams.get('category') ?? undefined;
+const productType = url.searchParams.get('product_type') ?? undefined;
+const order = url.searchParams.get('order') ?? 'default';
+const orderBy = order === 'price_asc' || order === 'price_desc' ? 'price' : order === 'name' ? 'name' : 'created_at';
+const orderDir = order === 'price_asc' || order === 'name' ? 'asc' : 'desc';
+
+const { data: products } = await listProducts({
+  category,
+  product_type: productType || undefined,
+  orderBy: orderBy as 'name' | 'price' | 'created_at',
+  orderDir,
+  page: 1,
+  pageSize: 24
+});
+
+const categoryLabel = category ? CATEGORIES.find((c) => c.slug === category)?.label : null;
+const subLabel = productType && category
+  ? CATEGORIES.find((c) => c.slug === category)?.subcategories.find((s) => s.product_type === productType)?.label
+  : null;
+const title = subLabel || categoryLabel || 'Tienda';
+const breadcrumbs = [
+  { label: 'Home', href: '/tienda' },
+  ...(categoryLabel ? [{ label: categoryLabel, href: `/tienda?category=${category}` }] : []),
+  ...(subLabel ? [{ label: subLabel }] : [])
+];
+---
+
+<CatalogLayout title={`${title} | Tienda`}>
+  <ProductGrid products={products} breadcrumbs={breadcrumbs} title={title} />
+</CatalogLayout>

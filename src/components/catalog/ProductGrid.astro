@@ -1,0 +1,65 @@
+---
+import ProductCard from './ProductCard.astro';
+import type { ProductRow } from '../../types/catalog';
+
+interface Props {
+  products: ProductRow[];
+  breadcrumbs?: { label: string; href?: string }[];
+  title?: string;
+}
+
+const { products, breadcrumbs = [], title } = Astro.props;
+---
+
+<div class="mx-auto max-w-7xl px-4 py-6">
+  {breadcrumbs.length > 0 && (
+    <nav class="mb-4 text-sm text-zinc-500" aria-label="Breadcrumb">
+      {breadcrumbs.map((b, i) => (
+        <span>
+          {i > 0 && <span class="mx-1">/</span>}
+          {b.href ? <a href={b.href} class="hover:text-zinc-700">{b.label}</a> : <span>{b.label}</span>}
+        </span>
+      ))}
+    </nav>
+  )}
+
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+    {title && <h1 class="text-xl font-semibold text-zinc-900">{title}</h1>}
+    <div class="ml-auto">
+      <label for="sort-select" class="sr-only">Ordenar por</label>
+      <select
+        id="sort-select"
+        name="sort"
+        class="rounded border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus:border-catalog-500 focus:outline-none focus:ring-1 focus:ring-catalog-500"
+      >
+        <option value="default">Orden por defecto</option>
+        <option value="price_asc">Precio: menor a mayor</option>
+        <option value="price_desc">Precio: mayor a menor</option>
+        <option value="name">Nombre</option>
+      </select>
+    </div>
+  </div>
+
+  {products.length === 0 ? (
+    <p class="rounded-lg border border-zinc-200 bg-zinc-50 p-8 text-center text-zinc-600">No hay productos en esta categoría.</p>
+  ) : (
+    <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {products.map((product) => (
+        <li>
+          <ProductCard product={product} />
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
+
+<script>
+  const select = document.getElementById('sort-select') as HTMLSelectElement | null;
+  if (select) {
+    select.addEventListener('change', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('order', select.value);
+      window.location.href = url.toString();
+    });
+  }
+</script>

@@ -1,0 +1,112 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { createProduct, slugify } from '../../../lib/catalog/admin-products';
+import { CATEGORIES, PRODUCT_TYPES_CATALOG } from '../../../lib/catalog/categories';
+
+export const prerender = false;
+
+let error = '';
+let successId: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  try {
+    const formData = await Astro.request.formData();
+    const name = (formData.get('name') as string)?.trim();
+    const slug = (formData.get('slug') as string)?.trim() || (name ? slugify(name) : '');
+    const product_type = (formData.get('product_type') as string)?.trim();
+    const category = (formData.get('category') as string)?.trim();
+    const subcategory = (formData.get('subcategory') as string)?.trim() || null;
+    const price = Number(formData.get('price'));
+    const salePriceRaw = formData.get('sale_price');
+    const sale_price = salePriceRaw != null && String(salePriceRaw).trim() !== '' ? Number(salePriceRaw) : null;
+    const tagsStr = (formData.get('tags') as string)?.trim();
+    const tags = tagsStr ? tagsStr.split(',').map((t) => t.trim()).filter(Boolean) : [];
+    const imageUrlsStr = (formData.get('image_urls') as string)?.trim();
+    const image_urls = imageUrlsStr ? imageUrlsStr.split(/\s+/).map((u) => u.trim()).filter(Boolean) : [];
+    const is_active = formData.get('is_active') === 'on';
+
+    if (!name || !product_type || !category) {
+      error = 'Nombre, tipo y categoría son obligatorios.';
+    } else if (Number.isNaN(price) || price < 0) {
+      error = 'Precio inválido.';
+    } else {
+      const id = await createProduct(
+        { name, slug, product_type, category, subcategory, price, sale_price, tags, image_urls, is_active },
+        [] // variantes se pueden añadir en editar
+      );
+      successId = id;
+      return Astro.redirect(`/admin/productos/editar/${id}?created=1`);
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+}
+---
+
+<AdminLayout title="Nuevo producto | Admin">
+  <h1 class="text-xl font-semibold tracking-tight">Nuevo producto</h1>
+  <a href="/admin/productos" class="mt-2 inline-block text-sm text-zinc-600 hover:underline">← Volver al listado</a>
+
+  {error && <p class="mt-4 rounded bg-red-100 p-3 text-sm text-red-800">{error}</p>}
+
+  <form method="post" class="mt-6 max-w-2xl space-y-4">
+    <div>
+      <label for="name" class="block text-sm font-medium text-zinc-700">Nombre *</label>
+      <input type="text" id="name" name="name" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div>
+      <label for="slug" class="block text-sm font-medium text-zinc-700">Slug (URL)</label>
+      <input type="text" id="slug" name="slug" placeholder="Se genera del nombre si se deja vacío" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label for="product_type" class="block text-sm font-medium text-zinc-700">Tipo de producto *</label>
+        <select id="product_type" name="product_type" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2">
+          <option value="">Seleccionar...</option>
+          {PRODUCT_TYPES_CATALOG.map((t) => (
+            <option value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label for="category" class="block text-sm font-medium text-zinc-700">Categoría *</label>
+        <select id="category" name="category" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2">
+          <option value="">Seleccionar...</option>
+          {CATEGORIES.map((c) => (
+            <option value={c.slug}>{c.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+    <div>
+      <label for="subcategory" class="block text-sm font-medium text-zinc-700">Subcategoría</label>
+      <input type="text" id="subcategory" name="subcategory" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label for="price" class="block text-sm font-medium text-zinc-700">Precio *</label>
+        <input type="number" id="price" name="price" step="0.01" min="0" required class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+      </div>
+      <div>
+        <label for="sale_price" class="block text-sm font-medium text-zinc-700">Precio oferta</label>
+        <input type="number" id="sale_price" name="sale_price" step="0.01" min="0" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+      </div>
+    </div>
+    <div>
+      <label for="tags" class="block text-sm font-medium text-zinc-700">Tags (separados por coma)</label>
+      <input type="text" id="tags" name="tags" placeholder="sublimado, playera, verano" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2" />
+    </div>
+    <div>
+      <label for="image_urls" class="block text-sm font-medium text-zinc-700">URLs de imágenes (una por línea o separadas por espacio)</label>
+      <textarea id="image_urls" name="image_urls" rows="3" placeholder="https://..." class="mt-1 w-full rounded border border-zinc-300 px-3 py-2"></textarea>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" id="is_active" name="is_active" checked class="rounded border-zinc-300" />
+      <label for="is_active" class="text-sm text-zinc-700">Producto activo (visible en tienda)</label>
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Crear producto</button>
+      <a href="/admin/productos" class="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancelar</a>
+    </div>
+  </form>
+</AdminLayout>
