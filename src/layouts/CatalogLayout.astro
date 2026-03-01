@@ -30,5 +30,51 @@ const { title = 'Tienda' } = Astro.props;
         <a href="/pedido" class="underline hover:text-zinc-700">Hacer pedido personalizado</a>.
       </p>
     </footer>
+    <script>
+      import { addItem } from '../lib/catalog/cartStore';
+
+      document.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const btn = target.closest('.add-to-cart-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (btn.getAttribute('data-is-ropa') === 'true') {
+          const slug = btn.getAttribute('data-product-slug');
+          if (slug) window.location.href = `/tienda/${slug}`;
+          return;
+        }
+
+        const id = btn.getAttribute('data-product-id');
+        const name = btn.getAttribute('data-product-name');
+        const productType = btn.getAttribute('data-product-type');
+        const slug = btn.getAttribute('data-product-slug');
+        const imageUrl = btn.getAttribute('data-image-url') ?? '';
+        const price = Number(btn.getAttribute('data-price'));
+        const salePriceRaw = btn.getAttribute('data-sale-price');
+        const salePrice = salePriceRaw ? Number(salePriceRaw) : null;
+
+        if (!id || !name || !productType || !slug) return;
+        try {
+          addItem({
+            productId: id,
+            name,
+            product_type: productType,
+            slug,
+            imageUrl,
+            price,
+            sale_price: salePrice,
+            quantity: 1,
+            variant: { label: 'Talla', value: 'Única' },
+            size: undefined,
+            color: undefined
+          });
+          window.dispatchEvent(new CustomEvent('catalog-cart-open'));
+        } catch (err) {
+          console.error('[CatalogLayout] Error en addItem', err);
+        }
+      }, true);
+    </script>
   </body>
 </html>

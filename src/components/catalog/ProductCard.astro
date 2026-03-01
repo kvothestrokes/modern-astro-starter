@@ -1,8 +1,10 @@
 ---
 import type { ProductRow } from '../../types/catalog';
+import { isClothingCategory } from '../../lib/catalog/categories';
+import type { ProductRowWithVariants } from '../../lib/catalog/products';
 
 interface Props {
-  product: ProductRow;
+  product: ProductRow | ProductRowWithVariants;
 }
 
 const { product } = Astro.props;
@@ -12,6 +14,8 @@ const discountPercent = hasSale && product.price > 0
   ? Math.round((1 - Number(product.sale_price) / Number(product.price)) * 100)
   : 0;
 const displayPrice = product.sale_price ?? product.price;
+
+const isRopa = isClothingCategory(product.category);
 ---
 
 <article class="group relative flex flex-col rounded-lg border border-zinc-200 bg-white transition-shadow hover:shadow-md">
@@ -32,14 +36,37 @@ const displayPrice = product.sale_price ?? product.price;
         -{discountPercent}%
       </span>
     )}
-    <!-- Hover overlay: iconos y botón -->
-    <div class="absolute inset-0 flex flex-col items-end justify-center gap-2 bg-black/0 pr-2 transition group-hover:bg-black/10" aria-hidden="true">
+    <!-- Hover overlay: iconos (no interceptar clics fuera de los botones) -->
+    <div class="pointer-events-none absolute inset-0 flex flex-col items-end justify-center gap-2 bg-black/0 pr-2 transition group-hover:bg-black/10 [&_a]:pointer-events-auto [&_button]:pointer-events-auto" aria-hidden="true">
       <a href={`/tienda/${product.slug}`} class="rounded-full bg-white/90 p-2 shadow hover:bg-white" aria-label="Ver producto">
         <svg class="h-4 w-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
       </a>
       <button type="button" class="rounded-full bg-white/90 p-2 shadow hover:bg-white" aria-label="Añadir a wishlist">
         <svg class="h-4 w-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
       </button>
+      {isRopa ? (
+        <a href={`/tienda/${product.slug}`} class="rounded-full bg-white/90 p-2 shadow hover:bg-white" aria-label="Ver producto para elegir talla y color">
+          <svg class="h-4 w-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        </a>
+      ) : (
+        <button
+          type="button"
+          class="add-to-cart-btn rounded-full bg-white/90 p-2 shadow hover:bg-white"
+          aria-label="Añadir al carrito"
+          data-product-id={String(product.id)}
+          data-product-name={product.name}
+          data-product-type={product.product_type}
+          data-product-slug={product.slug}
+          data-image-url={imageUrl}
+          data-price={product.price}
+          data-sale-price={product.sale_price ?? ''}
+          data-variant-label="Talla"
+          data-variant-value="Única"
+          data-is-ropa="false"
+        >
+          <svg class="h-4 w-4 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+        </button>
+      )}
     </div>
   </a>
 
@@ -62,51 +89,5 @@ const displayPrice = product.sale_price ?? product.price;
         {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(displayPrice))}
       </span>
     </div>
-    <!-- Botón agregar al carrito (visible en hover) -->
-    <div class="mt-2 opacity-0 transition group-hover:opacity-100">
-      <button
-        type="button"
-        class="add-to-cart-btn w-full rounded bg-catalog-500 py-2 text-sm font-medium text-white hover:bg-catalog-600 focus:outline-none focus:ring-2 focus:ring-catalog-500"
-        data-product-id={product.id}
-        data-product-name={product.name}
-        data-product-type={product.product_type}
-        data-product-slug={product.slug}
-        data-image-url={imageUrl}
-        data-price={product.price}
-        data-sale-price={product.sale_price ?? ''}
-      >
-        Agregar al carrito
-      </button>
-    </div>
   </div>
 </article>
-
-<script>
-  import { addItem } from '../../lib/catalog/cartStore';
-
-  document.querySelectorAll('.add-to-cart-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-product-id');
-      const name = btn.getAttribute('data-product-name');
-      const productType = btn.getAttribute('data-product-type');
-      const slug = btn.getAttribute('data-product-slug');
-      const imageUrl = btn.getAttribute('data-image-url') ?? '';
-      const price = Number(btn.getAttribute('data-price'));
-      const salePriceRaw = btn.getAttribute('data-sale-price');
-      const salePrice = salePriceRaw ? Number(salePriceRaw) : null;
-      if (!id || !name || !productType || !slug) return;
-      addItem({
-        productId: id,
-        name,
-        product_type: productType,
-        slug,
-        imageUrl,
-        price,
-        sale_price: salePrice,
-        quantity: 1,
-        variant: { label: 'Talla', value: 'Única' },
-        size: 'Única'
-      });
-    });
-  });
-</script>

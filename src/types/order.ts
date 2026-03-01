@@ -44,5 +44,12 @@ export interface OrderHistoryItem {
   orderId: string;
   createdAt: string;
   customerName: string;
-  products: { productType: string; size?: string; color?: string; quantity: number }[];
+  products: {
+    productType: string;
+    name?: string;
+    imageUrl?: string;
+    size?: string;
+    color?: string;
+    quantity: number;
+  }[];
 }

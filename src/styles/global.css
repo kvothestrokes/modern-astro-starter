@@ -16,9 +16,10 @@
   --color-gold-600: #a68520;
   --color-gold-800: #6b5716;
 
-  /* Catálogo / tienda: acento magenta/fucsia para botones, ofertas, navbar */
-  --color-catalog-400: #e879f9;
-  --color-catalog-500: #d946ef;
-  --color-catalog-600: #c026d3;
-  --color-catalog-700: #a21caf;
+  /* Catálogo / tienda: acento dorado (alineado con paleta premium) */
+  --color-catalog-50: #fefbf0;
+  --color-catalog-400: #e4b84a;
+  --color-catalog-500: #c9a227;
+  --color-catalog-600: #a68520;
+  --color-catalog-700: #8a6f1a;
 }

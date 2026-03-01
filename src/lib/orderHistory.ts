@@ -17,7 +17,13 @@ export function getOrderHistory(): OrderHistoryItem[] {
         typeof item === 'object' &&
         typeof (item as OrderHistoryItem).orderId === 'string' &&
         typeof (item as OrderHistoryItem).createdAt === 'string' &&
-        Array.isArray((item as OrderHistoryItem).products)
+        Array.isArray((item as OrderHistoryItem).products) &&
+        (item as OrderHistoryItem).products.every(
+          (p) =>
+            typeof p.productType === 'string' &&
+            (p.name == null || typeof p.name === 'string') &&
+            (p.imageUrl == null || typeof p.imageUrl === 'string')
+        )
     );
   } catch {
     return [];

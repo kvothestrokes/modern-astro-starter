@@ -58,6 +58,9 @@ export interface AddItemInput {
 }
 
 export function addItem(input: AddItemInput): void {
+  if (typeof window !== 'undefined') {
+    console.log('[cartStore] addItem llamado', { productId: input.productId, name: input.name, quantity: input.quantity });
+  }
   const cart = loadCart();
   const existing = cart.find(
     (i) =>
@@ -84,10 +87,18 @@ export function addItem(input: AddItemInput): void {
     });
   }
   saveCart(cart);
+  if (typeof window !== 'undefined') {
+    console.log('[cartStore] Carrito guardado, ítems:', cart.length, cart);
+  }
 }
 
 export function removeItem(itemId: string): void {
   saveCart(loadCart().filter((i) => i.id !== itemId));
+}
+
+/** Vacía el carrito y dispara catalog-cart-update. */
+export function clearCart(): void {
+  saveCart([]);
 }
 
 export function setQuantity(itemId: string, quantity: number): void {

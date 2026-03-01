@@ -60,3 +60,8 @@ export const PRODUCT_TYPES_CATALOG = CATEGORIES.flatMap((c) =>
 );
 
 export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug) as string[];
+
+/** Indica si la categoría del producto es ropa (requiere selección de talla). */
+export function isClothingCategory(category: string): boolean {
+  return category === 'ropa';
+}

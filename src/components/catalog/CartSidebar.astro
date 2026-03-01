@@ -38,7 +38,7 @@
       </p>
       <div class="mt-4 flex flex-col gap-2">
         <a
-          href="/pedido"
+          href="/tienda/carrito"
           id="cart-view-pedido"
           class="block rounded border border-zinc-300 bg-white py-2.5 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
         >
@@ -49,15 +49,17 @@
           id="cart-checkout-btn"
           class="w-full rounded bg-catalog-500 py-2.5 text-sm font-medium text-white hover:bg-catalog-600 focus:outline-none focus:ring-2 focus:ring-catalog-500"
         >
-          CHECKOUT
+          Hacer pedido
         </button>
+        <p id="cart-checkout-feedback" class="mt-2 min-h-[1.25rem] text-center text-sm text-red-600" aria-live="polite"></p>
       </div>
     </div>
   </aside>
 </div>
 
 <script>
-  import { getItems, getSubtotal, removeItem, setQuantity, checkoutToPedido } from '../../lib/catalog/cartStore';
+  import { getItems, getSubtotal, removeItem, setQuantity } from '../../lib/catalog/cartStore';
+  import { createOrderFromCart } from '../../lib/catalog/createOrderFromCart';
 
   const overlay = document.getElementById('cart-overlay');
   const panel = document.getElementById('cart-panel');
@@ -91,8 +93,13 @@
           <div class="min-w-0 flex-1">
             <p class="font-medium text-zinc-900">${escapeHtml(item.name)}</p>
             <p class="text-xs text-zinc-500">${escapeHtml(variantText)}</p>
-            <p class="mt-1 text-sm text-zinc-600">${item.quantity} × ${formatMoney(price)}</p>
-            <div class="mt-1 flex items-center gap-2">
+            <p class="mt-1 text-sm text-zinc-600">${formatMoney(price)} c/u</p>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <div class="flex items-center rounded border border-zinc-200 bg-zinc-50">
+                <button type="button" class="cart-qty-decrease h-7 w-7 flex items-center justify-center rounded-l text-zinc-600 hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-catalog-500" data-item-id="${item.id}" aria-label="Disminuir cantidad">−</button>
+                <span class="cart-qty-value min-w-[1.5rem] text-center text-sm font-medium text-zinc-900" aria-live="polite">${item.quantity}</span>
+                <button type="button" class="cart-qty-increase h-7 w-7 flex items-center justify-center rounded-r text-zinc-600 hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-catalog-500" data-item-id="${item.id}" aria-label="Aumentar cantidad">+</button>
+              </div>
               <button type="button" class="cart-item-remove text-xs text-red-600 hover:underline" data-item-id="${item.id}">Quitar</button>
             </div>
           </div>
@@ -109,6 +116,25 @@
       btn.addEventListener('click', () => {
         const id = (btn as HTMLElement).getAttribute('data-item-id');
         if (id) removeItem(id);
+        renderItems();
+      });
+    });
+
+    itemsContainer.querySelectorAll('.cart-qty-decrease').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).getAttribute('data-item-id');
+        if (!id) return;
+        const current = getItems().find((i) => i.id === id)?.quantity ?? 1;
+        setQuantity(id, Math.max(1, current - 1));
+        renderItems();
+      });
+    });
+    itemsContainer.querySelectorAll('.cart-qty-increase').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = (btn as HTMLElement).getAttribute('data-item-id');
+        if (!id) return;
+        const current = getItems().find((i) => i.id === id)?.quantity ?? 0;
+        setQuantity(id, Math.min(99, current + 1));
         renderItems();
       });
     });
@@ -137,9 +163,19 @@
   document.getElementById('cart-close-btn')?.addEventListener('click', closeCart);
   overlay?.addEventListener('click', closeCart);
 
-  document.getElementById('cart-checkout-btn')?.addEventListener('click', () => {
+  const checkoutBtn = document.getElementById('cart-checkout-btn');
+  const checkoutFeedback = document.getElementById('cart-checkout-feedback');
+  checkoutBtn?.addEventListener('click', async () => {
     if (getItems().length === 0) return;
-    checkoutToPedido();
+    if (checkoutFeedback) checkoutFeedback.textContent = '';
+    if (checkoutBtn) (checkoutBtn as HTMLButtonElement).disabled = true;
+    try {
+      await createOrderFromCart();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (checkoutFeedback) checkoutFeedback.textContent = msg;
+      if (checkoutBtn) (checkoutBtn as HTMLButtonElement).disabled = false;
+    }
   });
 
   window.addEventListener('catalog-cart-update', renderItems);

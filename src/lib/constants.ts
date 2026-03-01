@@ -27,7 +27,7 @@ export const STATUS_BADGE_CLASS: Record<DesignStatus, string> = {
   recibido: 'bg-sky-100 text-sky-800',
   pendiente_pago: 'bg-amber-100 text-amber-800',
   pagado: 'bg-emerald-100 text-emerald-800',
-  falta_diseno: 'bg-rose-100 text-rose-800',
+  falta_diseno: 'bg-gold-100 text-gold-800',
   en_espera_cliente: 'bg-zinc-200 text-zinc-700',
   diseno_aprobado: 'bg-violet-100 text-violet-800',
   listo_para_impresion: 'bg-gold-100 text-gold-800',

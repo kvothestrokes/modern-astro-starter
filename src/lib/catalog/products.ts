@@ -13,7 +13,11 @@ export interface ListProductsOptions {
   orderDir?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
+  /** Si true, incluye product_variants en cada producto (para selector de talla en catálogo). */
+  includeVariants?: boolean;
 }
+
+export type ProductRowWithVariants = ProductRow & { product_variants?: ProductVariantRow[] };
 
 const DEFAULT_PAGE_SIZE = 24;
 
@@ -23,9 +27,10 @@ export async function listProducts(opts: ListProductsOptions = {}) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  const selectFields = opts.includeVariants ? '*, product_variants(*)' : '*';
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select(selectFields, { count: 'exact' })
     .eq('is_active', true)
     .range(from, to);
 
@@ -41,6 +46,14 @@ export async function listProducts(opts: ListProductsOptions = {}) {
 
   const { data, error, count } = await query;
   if (error) throw error;
+
+  if (opts.includeVariants) {
+    const normalized = (data ?? []).map((row: Record<string, unknown>) => {
+      const { product_variants, ...rest } = row;
+      return { ...rest, product_variants: product_variants ?? [] };
+    });
+    return { data: normalized as ProductRowWithVariants[], count: count ?? 0 };
+  }
   return { data: (data ?? []) as ProductRow[], count: count ?? 0 };
 }
 

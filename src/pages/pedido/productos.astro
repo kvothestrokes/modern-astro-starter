@@ -3,6 +3,7 @@ import PublicLayout from '../../layouts/PublicLayout.astro';
 import StepHeader from '../../components/order/StepHeader.astro';
 import OrderProgress from '../../components/order/OrderProgress.astro';
 import Button from '../../components/ui/Button.astro';
+import ColorSwatches from '../../components/catalog/ColorSwatches.astro';
 import { PRODUCT_TYPES, SIZES, COLORS } from '../../lib/productOptions';
 ---
 
@@ -37,24 +38,14 @@ import { PRODUCT_TYPES, SIZES, COLORS } from '../../lib/productOptions';
           ))}
         </select>
       </label>
-      <div class="grid gap-1 text-sm">
-        <span class="font-medium">Color (N/A si no es playera)</span>
-        <div class="mt-1 flex flex-wrap gap-2" id="colorSwatches" role="group" aria-label="Color">
-          {COLORS.map((c) => (
-            <button
-              type="button"
-              class={`color-swatch h-8 w-8 rounded-full border-2 border-zinc-300 transition focus:outline-none focus:ring-2 focus:ring-zinc-900 data-[selected=true]:border-zinc-900 data-[selected=true]:ring-2 data-[selected=true]:ring-zinc-900 ${c.hex ? '' : 'bg-zinc-200'}`}
-              data-value={c.value}
-              data-label={c.label}
-              title={c.label}
-              style={c.hex ? `background-color: ${c.hex}` : ''}
-            >
-              {c.value === 'NA' ? <span class="text-[10px] font-medium text-zinc-600">N/A</span> : null}
-            </button>
-          ))}
-        </div>
-        <input type="hidden" name="color" id="colorInput" value="NA" />
-      </div>
+      <ColorSwatches
+        colors={COLORS}
+        name="color"
+        containerId="colorSwatches"
+        inputId="colorInput"
+        defaultValue="NA"
+        label="Color (N/A si no es playera)"
+      />
     </div>
     <label class="grid gap-1 text-sm">
       <span class="font-medium">Notas (opcional)</span>

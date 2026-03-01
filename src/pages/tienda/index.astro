@@ -19,7 +19,8 @@ const { data: products } = await listProducts({
   orderBy: orderBy as 'name' | 'price' | 'created_at',
   orderDir,
   page: 1,
-  pageSize: 24
+  pageSize: 24,
+  includeVariants: true
 });
 
 const categoryLabel = category ? CATEGORIES.find((c) => c.slug === category)?.label : null;

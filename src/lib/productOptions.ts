@@ -14,9 +14,8 @@ export interface ColorOption {
 }
 
 export const COLORS: ColorOption[] = [
-  { value: 'NA', label: 'N/A' },
-  { value: 'Blanco', label: 'Blanco', hex: '#ffffff' },
   { value: 'Negro', label: 'Negro', hex: '#1a1a1a' },
+  { value: 'Blanco', label: 'Blanco', hex: '#ffffff' },
   { value: 'Gris', label: 'Gris', hex: '#6b7280' },
   { value: 'Azul marino', label: 'Azul marino', hex: '#1e3a5f' },
   { value: 'Rojo', label: 'Rojo', hex: '#b91c1c' },

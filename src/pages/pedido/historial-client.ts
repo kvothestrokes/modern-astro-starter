@@ -35,13 +35,23 @@ function render() {
       const shortId = order.orderId.slice(0, 8).toUpperCase();
       const rows = order.products
         .map(
-          (p) => `
+          (p) => {
+            const displayName = escapeHtml(p.name ?? p.productType);
+            const imageUrl = p.imageUrl ?? '';
+            const imgCell = imageUrl
+              ? `<td class="py-2 pr-3 align-middle">
+                  <img src="${escapeHtml(imageUrl)}" alt="" class="h-12 w-12 rounded-lg border border-zinc-200 object-cover" width="48" height="48" loading="lazy" />
+                </td>`
+              : '<td class="py-2 pr-3 align-middle"><span class="text-zinc-400">—</span></td>';
+            return `
           <tr class="border-b border-zinc-100">
-            <td class="py-2 pr-3 font-medium">${escapeHtml(p.productType)}</td>
+            ${imgCell}
+            <td class="py-2 pr-3 font-medium text-zinc-900">${displayName}</td>
             <td class="py-2 pr-3">${escapeHtml(p.size ?? '-')}</td>
             <td class="py-2 pr-3">${escapeHtml(p.color ?? '-')}</td>
             <td class="py-2 pr-3">${p.quantity}</td>
-          </tr>`
+          </tr>`;
+          }
         )
         .join('');
       return `
@@ -56,6 +66,7 @@ function render() {
             <table class="w-full text-sm text-zinc-700">
               <thead>
                 <tr class="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500">
+                  <th class="pb-2 pr-3">Imagen</th>
                   <th class="pb-2 pr-3">Producto</th>
                   <th class="pb-2 pr-3">Talla</th>
                   <th class="pb-2 pr-3">Color</th>
